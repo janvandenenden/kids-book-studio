@@ -1,0 +1,128 @@
+{
+  "id": "adventure-story",
+  "title": "{{name}}'s Big Adventure",
+  "ageRange": "4-6",
+  "pageCount": 12,
+  "pages": [
+    {
+      "page": 1,
+      "scene": "Child standing in sunny backyard garden, noticing something unusual",
+      "emotion": "curious, excited",
+      "action": "exploring the garden",
+      "setting": "bright sunny backyard with colorful flowers and butterflies",
+      "composition_hint": "wide",
+      "text": "Once upon a time, there was a curious child named {{name}} who loved to explore.",
+      "layout": "bottom_text"
+    },
+    {
+      "page": 2,
+      "scene": "Child discovering a tiny magical door hidden behind garden shed",
+      "emotion": "surprised, wonder",
+      "action": "kneeling down to look at small door",
+      "setting": "garden shed corner with ivy and golden light from door crack",
+      "composition_hint": "medium",
+      "text": "One sunny morning, {{name}} discovered a tiny door hidden behind the garden shed. Golden light sparkled from underneath.",
+      "layout": "right_text"
+    },
+    {
+      "page": 3,
+      "scene": "Child reaching toward the tiny door handle",
+      "emotion": "brave, determined",
+      "action": "reaching for golden door handle",
+      "setting": "close view of magical door with intricate patterns",
+      "composition_hint": "close",
+      "text": "\"I wonder where this leads,\" {{name}} whispered, turning the golden handle.",
+      "layout": "bottom_text"
+    },
+    {
+      "page": 4,
+      "scene": "Child stepping into magical forest with glowing flowers",
+      "emotion": "amazed, joyful",
+      "action": "stepping through doorway into magical world",
+      "setting": "enchanted forest with glowing blue and pink flowers, soft magical lighting",
+      "composition_hint": "wide",
+      "text": "The door opened to a magical forest filled with glowing flowers and friendly creatures!",
+      "layout": "bottom_text"
+    },
+    {
+      "page": 5,
+      "scene": "Child meeting a wise friendly owl on a branch",
+      "emotion": "happy, friendly",
+      "action": "waving hello to owl",
+      "setting": "magical forest clearing with ancient tree, small woodland creatures watching",
+      "composition_hint": "medium",
+      "text": "A wise owl flew down from a branch. \"Welcome, {{name}}! We've been waiting for someone brave like you.\"",
+      "layout": "left_text"
+    },
+    {
+      "page": 6,
+      "scene": "Child walking through forest with owl flying alongside",
+      "emotion": "adventurous, confident",
+      "action": "walking on glowing forest path",
+      "setting": "winding path through magical forest with fireflies",
+      "composition_hint": "wide",
+      "text": "\"There's someone who needs your help,\" said the owl. \"Will you come with me?\"",
+      "layout": "bottom_text"
+    },
+    {
+      "page": 7,
+      "scene": "Child discovering baby dragon stuck in thornbush",
+      "emotion": "concerned, caring",
+      "action": "kneeling beside tangled baby dragon",
+      "setting": "forest clearing with thornbush, cute baby dragon with big eyes",
+      "composition_hint": "medium",
+      "text": "In a clearing, {{name}} found a baby dragon tangled in a thornbush. \"Don't worry, little one,\" {{name}} said softly.",
+      "layout": "right_text"
+    },
+    {
+      "page": 8,
+      "scene": "Child carefully helping free the baby dragon",
+      "emotion": "gentle, determined",
+      "action": "carefully removing thorns from dragon",
+      "setting": "close view of gentle rescue, forest friends watching",
+      "composition_hint": "close",
+      "text": "Gently and carefully, {{name}} untangled the thorns one by one.",
+      "layout": "bottom_text"
+    },
+    {
+      "page": 9,
+      "scene": "Baby dragon happily nuzzling child in thanks",
+      "emotion": "delighted, proud",
+      "action": "hugging grateful baby dragon",
+      "setting": "sunny forest clearing, flowers blooming around them",
+      "composition_hint": "medium",
+      "text": "The baby dragon was free! It nuzzled {{name}} happily. \"Thank you, thank you!\" it chirped.",
+      "layout": "left_text"
+    },
+    {
+      "page": 10,
+      "scene": "Child surrounded by grateful forest creatures celebrating",
+      "emotion": "joyful, celebrated",
+      "action": "being celebrated by forest friends",
+      "setting": "magical forest party with woodland creatures, soft glowing lights",
+      "composition_hint": "wide",
+      "text": "All the forest creatures gathered around. \"{{name}} is a true hero!\" they cheered.",
+      "layout": "bottom_text"
+    },
+    {
+      "page": 11,
+      "scene": "Child at the tiny door saying goodbye to new friends",
+      "emotion": "bittersweet, grateful",
+      "action": "waving goodbye at doorway",
+      "setting": "tiny door in forest, sunset colors, friends gathered to say goodbye",
+      "composition_hint": "medium",
+      "text": "As the sun set, the owl said, \"You can visit anytime, {{name}}. True adventurers are always welcome here.\"",
+      "layout": "right_text"
+    },
+    {
+      "page": 12,
+      "scene": "Child back in garden looking at stars",
+      "emotion": "peaceful, dreamy",
+      "action": "sitting in garden looking up at stars",
+      "setting": "backyard garden at dusk with first stars appearing",
+      "composition_hint": "wide",
+      "text": "{{name}} stepped back through the tiny door, heart full of magic, knowing the adventure was just beginning.\n\nThe End.",
+      "layout": "bottom_text"
+    }
+  ]
+}

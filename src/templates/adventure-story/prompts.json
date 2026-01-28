@@ -1,0 +1,55 @@
+{
+  "storyId": "adventure-story",
+  "stylePrompt": "Soft children's book illustration, pastel colors, gentle watercolor texture, rounded shapes, thick but soft outlines, warm lighting, playful and calm mood, storybook art style, hand-painted look",
+  "negativePrompt": "extra characters, multiple children, inconsistent face, realistic photo, harsh shadows, busy background, cropped face, distorted anatomy, text, words, letters, ugly, deformed, disfigured, blurry, bad anatomy, extra limbs, signature, watermark, scary, dark, violent",
+  "pages": [
+    {
+      "page": 1,
+      "prompt": "exploring sunny backyard garden, colorful flowers blooming, butterflies flying around, morning sunshine, curious expression"
+    },
+    {
+      "page": 2,
+      "prompt": "kneeling beside tiny wooden door behind garden shed, golden magical light glowing from door crack, ivy growing on shed, wonder on face"
+    },
+    {
+      "page": 3,
+      "prompt": "reaching toward ornate golden door handle, close up view, magical door with swirling patterns, determined brave expression"
+    },
+    {
+      "page": 4,
+      "prompt": "stepping through magical doorway into enchanted forest, glowing blue and pink flowers, soft ethereal lighting, amazed joyful expression"
+    },
+    {
+      "page": 5,
+      "prompt": "talking to wise friendly owl perched on tree branch, magical forest clearing, small woodland creatures watching from bushes, happy friendly expression"
+    },
+    {
+      "page": 6,
+      "prompt": "walking on glowing forest path, owl flying alongside, fireflies floating in air, winding magical path through tall trees, adventurous confident expression"
+    },
+    {
+      "page": 7,
+      "prompt": "kneeling beside cute baby dragon stuck in thornbush, forest clearing, baby dragon with big sad eyes, concerned caring expression"
+    },
+    {
+      "page": 8,
+      "prompt": "carefully helping free baby dragon from thorns, gentle hands, forest animals watching from nearby, gentle determined expression"
+    },
+    {
+      "page": 9,
+      "prompt": "hugging happy baby dragon, dragon nuzzling child in thanks, flowers blooming around them, sunny forest clearing, delighted proud expression"
+    },
+    {
+      "page": 10,
+      "prompt": "surrounded by celebrating forest creatures, woodland party, animals cheering, soft glowing lights, magical celebration, joyful celebrated expression"
+    },
+    {
+      "page": 11,
+      "prompt": "standing at tiny magical door waving goodbye, forest friends gathered, sunset orange and pink colors, bittersweet grateful expression"
+    },
+    {
+      "page": 12,
+      "prompt": "sitting in backyard garden looking up at starry night sky, peaceful evening, first stars appearing, dreamy peaceful expression, warm nostalgic mood"
+    }
+  ]
+}

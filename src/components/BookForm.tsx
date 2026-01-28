@@ -1,0 +1,475 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import { useDropzone } from "react-dropzone";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { IMAGE_MODELS, ImageModel } from "@/lib/replicate";
+
+type Step = "upload" | "description" | "character";
+
+// Check if dev mode is enabled
+const isDevMode = process.env.NEXT_PUBLIC_DEV_MODE === "true";
+
+export function BookForm() {
+  const router = useRouter();
+  const [step, setStep] = useState<Step>("upload");
+  const [childName, setChildName] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoPath, setPhotoPath] = useState<string | null>(null);
+  const [characterDescription, setCharacterDescription] = useState("");
+  const [characterSheetUrl, setCharacterSheetUrl] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<ImageModel>(
+    isDevMode ? "nano-banana" : "nano-banana-pro"
+  );
+  const [pageLimit, setPageLimit] = useState<number>(isDevMode ? 3 : 12);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (file) {
+      setPhoto(file);
+      setPhotoPreview(URL.createObjectURL(file));
+      setError(null);
+    }
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      "image/jpeg": [".jpg", ".jpeg"],
+      "image/png": [".png"],
+      "image/webp": [".webp"],
+    },
+    maxFiles: 1,
+    maxSize: 10 * 1024 * 1024,
+  });
+
+  // Step 1: Upload photo and analyze
+  const handleUploadAndAnalyze = async () => {
+    setError(null);
+
+    if (!childName.trim()) {
+      setError("Please enter your child's name");
+      return;
+    }
+
+    if (!photo) {
+      setError("Please upload a photo");
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadingMessage("Uploading photo...");
+
+    try {
+      // Upload photo
+      const formData = new FormData();
+      formData.append("photo", photo);
+      formData.append("name", childName.trim());
+
+      const uploadResponse = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        const data = await uploadResponse.json();
+        throw new Error(data.error || "Upload failed");
+      }
+
+      const uploadData = await uploadResponse.json();
+      setPhotoPath(uploadData.filePath);
+
+      // Analyze photo
+      setLoadingMessage("Analyzing photo...");
+      const analyzeResponse = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          photoPath: uploadData.filePath,
+          childName: childName.trim(),
+        }),
+      });
+
+      if (!analyzeResponse.ok) {
+        const data = await analyzeResponse.json();
+        throw new Error(data.error || "Analysis failed");
+      }
+
+      const analyzeData = await analyzeResponse.json();
+      setCharacterDescription(analyzeData.description);
+      setStep("description");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
+  };
+
+  // Step 2: Generate character sheet
+  const handleGenerateCharacterSheet = async () => {
+    if (!characterDescription.trim()) {
+      setError("Please provide a character description");
+      return;
+    }
+
+    if (!photoPath) {
+      setError("Missing photo reference");
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadingMessage("Creating character illustration...");
+    setError(null);
+
+    try {
+      const response = await fetch("/api/character-sheet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          characterDescription: characterDescription.trim(),
+          photoPath: photoPath,
+          model: selectedModel,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to generate character");
+      }
+
+      const data = await response.json();
+      setCharacterSheetUrl(data.characterSheetUrl);
+      setStep("character");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
+  };
+
+  // Step 3: Create book
+  const handleCreateBook = () => {
+    sessionStorage.setItem(
+      "bookData",
+      JSON.stringify({
+        childName: childName.trim(),
+        characterDescription: characterDescription.trim(),
+        characterSheetUrl,
+        photoPath,
+        model: selectedModel,
+        pageLimit: isDevMode ? pageLimit : undefined,
+      })
+    );
+    router.push("/preview");
+  };
+
+  // Regenerate character sheet with same description
+  const handleRegenerateCharacter = () => {
+    handleGenerateCharacterSheet();
+  };
+
+  const handleBack = () => {
+    setError(null);
+    if (step === "description") {
+      setStep("upload");
+    } else if (step === "character") {
+      setStep("description");
+    }
+  };
+
+  const getStepIndicator = () => {
+    const steps = ["Photo", "Description", "Character"];
+    const currentIndex = step === "upload" ? 0 : step === "description" ? 1 : 2;
+
+    return (
+      <div className="flex justify-center gap-2 mb-4">
+        {steps.map((s, i) => (
+          <div
+            key={s}
+            className={`flex items-center ${i < steps.length - 1 ? "flex-1" : ""}`}
+          >
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                i <= currentIndex
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {i + 1}
+            </div>
+            {i < steps.length - 1 && (
+              <div
+                className={`flex-1 h-1 mx-2 ${
+                  i < currentIndex ? "bg-primary" : "bg-muted"
+                }`}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <CardTitle className="text-center">Create Your Book</CardTitle>
+        {getStepIndicator()}
+      </CardHeader>
+      <CardContent>
+        {/* Step 1: Upload */}
+        {step === "upload" && (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label htmlFor="childName" className="text-sm font-medium">
+                Child&apos;s Name
+              </label>
+              <Input
+                id="childName"
+                type="text"
+                placeholder="Enter your child's name"
+                value={childName}
+                onChange={(e) => setChildName(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Photo</label>
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                  isDragActive
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/25 hover:border-primary/50"
+                } ${isLoading ? "pointer-events-none opacity-50" : ""}`}
+              >
+                <input {...getInputProps()} />
+                {photoPreview ? (
+                  <div className="space-y-2">
+                    <img
+                      src={photoPreview}
+                      alt="Preview"
+                      className="mx-auto max-h-40 rounded-lg object-cover"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Click or drag to replace
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="text-4xl">📷</div>
+                    <p className="text-sm text-muted-foreground">
+                      {isDragActive
+                        ? "Drop the photo here..."
+                        : "Drag & drop a photo, or click to select"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      A clear face photo works best
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {error && (
+              <p className="text-sm text-destructive text-center">{error}</p>
+            )}
+
+            <Button
+              onClick={handleUploadAndAnalyze}
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <span className="animate-spin">⏳</span>
+                  {loadingMessage}
+                </span>
+              ) : (
+                "Continue"
+              )}
+            </Button>
+          </div>
+        )}
+
+        {/* Step 2: Description */}
+        {step === "description" && (
+          <div className="space-y-6">
+            <div className="flex justify-center gap-4">
+              {photoPreview && (
+                <img
+                  src={photoPreview}
+                  alt="Original"
+                  className="h-24 rounded-lg object-cover"
+                />
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="description" className="text-sm font-medium">
+                Character Description
+              </label>
+              <p className="text-xs text-muted-foreground">
+                We&apos;ll use this to create your child&apos;s illustrated character. Feel free to edit!
+              </p>
+              <textarea
+                id="description"
+                value={characterDescription}
+                onChange={(e) => setCharacterDescription(e.target.value)}
+                className="w-full min-h-[120px] px-3 py-2 rounded-md border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="e.g., A 5-year-old girl with curly brown hair, big brown eyes, and light skin with rosy cheeks..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Image Model</label>
+              <p className="text-xs text-muted-foreground">
+                Choose the AI model for generating illustrations
+              </p>
+              <div className="grid gap-2">
+                {(Object.keys(IMAGE_MODELS) as ImageModel[]).map((modelKey) => {
+                  const model = IMAGE_MODELS[modelKey];
+                  return (
+                    <label
+                      key={modelKey}
+                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        selectedModel === modelKey
+                          ? "border-primary bg-primary/5"
+                          : "border-input hover:border-primary/50"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="model"
+                        value={modelKey}
+                        checked={selectedModel === modelKey}
+                        onChange={() => setSelectedModel(modelKey)}
+                        className="mt-1"
+                      />
+                      <div>
+                        <div className="font-medium text-sm">{model.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {model.description}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {isDevMode && (
+              <div className="space-y-2 p-3 rounded-lg border border-yellow-300 bg-yellow-50">
+                <div className="flex items-center gap-2">
+                  <span className="text-yellow-600 text-sm font-medium">Dev Mode</span>
+                </div>
+                <div className="space-y-1">
+                  <label htmlFor="pageLimit" className="text-sm font-medium">
+                    Page Limit (for testing)
+                  </label>
+                  <Input
+                    id="pageLimit"
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={pageLimit}
+                    onChange={(e) => setPageLimit(Math.min(12, Math.max(1, parseInt(e.target.value) || 1)))}
+                    className="w-24"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Generate only {pageLimit} page{pageLimit !== 1 ? "s" : ""} to save costs
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <p className="text-sm text-destructive text-center">{error}</p>
+            )}
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={handleBack} className="flex-1" disabled={isLoading}>
+                ← Back
+              </Button>
+              <Button onClick={handleGenerateCharacterSheet} className="flex-1" disabled={isLoading}>
+                {isLoading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="animate-spin">⏳</span>
+                    Creating...
+                  </span>
+                ) : (
+                  "Create Character"
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Character Review */}
+        {step === "character" && (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Your Character</label>
+              <p className="text-xs text-muted-foreground">
+                This is how {childName} will appear in the story. You can regenerate if needed.
+              </p>
+            </div>
+
+            <div className="flex justify-center gap-4">
+              {photoPreview && (
+                <div className="text-center">
+                  <img
+                    src={photoPreview}
+                    alt="Original photo"
+                    className="h-32 rounded-lg object-cover mx-auto"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Original</p>
+                </div>
+              )}
+              {characterSheetUrl && (
+                <div className="text-center">
+                  <img
+                    src={characterSheetUrl}
+                    alt="Character illustration"
+                    className="h-32 rounded-lg object-cover mx-auto"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Character</p>
+                </div>
+              )}
+            </div>
+
+            {error && (
+              <p className="text-sm text-destructive text-center">{error}</p>
+            )}
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={handleBack} className="flex-1" disabled={isLoading}>
+                ← Edit
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleRegenerateCharacter}
+                disabled={isLoading}
+              >
+                {isLoading ? "..." : "🔄"}
+              </Button>
+              <Button onClick={handleCreateBook} className="flex-1" disabled={isLoading}>
+                Create Book
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
