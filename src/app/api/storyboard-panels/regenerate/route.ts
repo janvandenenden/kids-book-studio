@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  generateStoryboardPanel,
-  ImageModel,
-} from "@/lib/replicate";
+import { generateStoryboardPanel, ImageModel } from "@/lib/replicate";
 import type { StoryPage, StoryboardPanel } from "@/types";
 
 export const maxDuration = 120; // 2 minutes for single panel regeneration
@@ -20,15 +17,12 @@ export async function POST(request: NextRequest) {
     if (!pageNumber) {
       return NextResponse.json(
         { error: "Missing pageNumber" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!pageData) {
-      return NextResponse.json(
-        { error: "Missing pageData" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing pageData" }, { status: 400 });
     }
 
     console.log(`Regenerating storyboard panel ${pageNumber}`);
@@ -36,12 +30,14 @@ export async function POST(request: NextRequest) {
     // Generate single B&W storyboard panel (no reference image needed)
     const sketchUrl = await generateStoryboardPanel(
       pageData as StoryPage,
-      characterType as "boy" | "girl" | "child",
-      (model as ImageModel) || "nano-banana-pro"
+      (model as ImageModel) || "nano-banana-pro",
     );
 
     // Determine text placement from layout
-    const textPlacementMap: Record<string, "left" | "right" | "bottom" | "top"> = {
+    const textPlacementMap: Record<
+      string,
+      "left" | "right" | "bottom" | "top"
+    > = {
       left_text: "left",
       right_text: "right",
       bottom_text: "bottom",
@@ -51,7 +47,8 @@ export async function POST(request: NextRequest) {
     const panel: StoryboardPanel = {
       page: pageNumber,
       scene: (pageData as StoryPage).scene,
-      textPlacement: textPlacementMap[(pageData as StoryPage).layout] || "bottom",
+      textPlacement:
+        textPlacementMap[(pageData as StoryPage).layout] || "bottom",
       sketchUrl,
       approved: false,
     };
@@ -65,8 +62,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Panel regeneration error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to regenerate panel" },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to regenerate panel",
+      },
+      { status: 500 },
     );
   }
 }
