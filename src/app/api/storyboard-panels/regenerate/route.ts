@@ -7,12 +7,7 @@ export const maxDuration = 120; // 2 minutes for single panel regeneration
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      pageNumber,
-      pageData,
-      characterType = "child", // "boy" | "girl" | "child"
-      model,
-    } = body;
+    const { pageNumber, pageData, model } = body;
 
     if (!pageNumber) {
       return NextResponse.json(
@@ -27,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`Regenerating storyboard panel ${pageNumber}`);
 
-    // Generate single B&W storyboard panel (no reference image needed)
+    // Generate single B&W storyboard panel (uses outline.png as input)
     const sketchUrl = await generateStoryboardPanel(
       pageData as StoryPage,
       (model as ImageModel) || "nano-banana-pro",

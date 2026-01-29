@@ -27,9 +27,9 @@ export async function POST(request: NextRequest) {
 
     console.log(`Starting storyboard panel generation`);
     console.log(`Character type: ${characterType}`);
-    console.log(`Generating ${storyboard.pages.length} B&W panels...`);
+    console.log(`Generating ${storyboard.pages.length} B&W panels using outline.png...`);
 
-    // Generate all B&W storyboard panels (no reference image needed)
+    // Generate all B&W storyboard panels (uses outline.png as input for consistency)
     const panels = await generateAllStoryboardPanels(
       storyboard.pages,
       (model as ImageModel) || "nano-banana-pro",

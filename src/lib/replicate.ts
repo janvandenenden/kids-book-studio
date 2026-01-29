@@ -35,15 +35,10 @@ export const GLOBAL_STYLE_PROMPT = `Soft children's book illustration, pastel co
 export const GLOBAL_NEGATIVE_PROMPT = `extra characters, multiple children, inconsistent face, realistic photo, harsh shadows, busy background, cropped face, distorted anatomy, text, words, letters, ugly, deformed, disfigured, blurry, bad anatomy, extra limbs, signature, watermark, scary, dark, violent`;
 
 // Storyboard style for B&W sketch panels - composition focus
-export const STORYBOARD_STYLE_PROMPT = `loose sketch, soft shapes, simplified forms, low detail, black and white only`;
+export const STORYBOARD_STYLE_PROMPT = `loose sketch, soft shapes, simplified forms, low detail, black and white only, no text, no border, minimal background`;
 
-export const STORYBOARD_NOTES = `No text, no border, no symbols, no color
-
-Placeholder figure only: no clothing, no hair, no facial features
-
-Human form should feel abstract and unfinished, suitable for later refinement
-
-Minimal background suggestion only, no detailed environment`;
+// Path to the child outline image used as img2img input for storyboard panels
+export const STORYBOARD_OUTLINE_PATH = "/outline.png";
 
 // Storyboard negative prompt - excludes color, text, borders
 export const STORYBOARD_NEGATIVE_PROMPT = `color, vibrant, colorful, detailed, finished, polished, text, words, letters, border, frame, complex shading, realistic, photorealistic, saturated, border`;
@@ -292,7 +287,6 @@ export async function generateCharacterSheet(
 async function generateCharacterSheetImage({
   prompt,
   referenceImageUrl,
-  negativePrompt: _negativePrompt = GLOBAL_NEGATIVE_PROMPT,
   model = DEFAULT_MODEL,
 }: GenerateImageParams): Promise<string> {
   console.log(`Generating character sheet with ${model}:`, {
@@ -411,7 +405,7 @@ export async function regeneratePage(
 
 /**
  * Build prompt for B&W storyboard panel
- * Simple scene description with generic character outline
+ * Uses outline image as input - prompt focuses on scene and composition
  */
 export function buildStoryboardPanelPrompt(page: StoryPage): string {
   const compositionHints: Record<string, string> = {
@@ -430,14 +424,15 @@ export function buildStoryboardPanelPrompt(page: StoryPage): string {
   const composition = compositionHints[page.composition_hint] || "medium shot";
   const layout = layoutHints[page.layout] || "";
 
-  const prompt = `Create a storyboard panel for: ${page.scene}. ${composition}. ${layout}. Child shown as simple placeholder silhouette. Style: ${STORYBOARD_STYLE_PROMPT}. ${STORYBOARD_NOTES}`;
+  // Prompt focuses on placing the outline figure in the scene
+  const prompt = `Place the child outline from the input image into this scene: ${page.scene}. ${composition}. ${layout}. Style: ${STORYBOARD_STYLE_PROMPT}`;
 
   return prompt;
 }
 
 /**
  * Generate a single B&W storyboard panel
- * No reference image needed - just a composition sketch
+ * Uses outline.png as input image for consistent character placement
  */
 export async function generateStoryboardPanel(
   page: StoryPage,
@@ -446,21 +441,84 @@ export async function generateStoryboardPanel(
   const prompt = buildStoryboardPanelPrompt(page);
 
   console.log(
-    `Generating storyboard panel ${page.page}:`,
+    `Generating storyboard panel ${page.page} with outline image:`,
     prompt.slice(0, 100) + "...",
   );
 
-  return generateImage({
+  // Use outline image as init_image for consistent character across panels
+  return generateStoryboardPanelWithOutline({
     prompt,
+    outlineImagePath: STORYBOARD_OUTLINE_PATH,
     model,
   });
+}
+
+interface StoryboardPanelParams {
+  prompt: string;
+  outlineImagePath: string;
+  model?: ImageModel;
+}
+
+/**
+ * Generate storyboard panel using outline image as reference
+ * The outline provides consistent character positioning across all panels
+ */
+async function generateStoryboardPanelWithOutline({
+  prompt,
+  outlineImagePath,
+  model = DEFAULT_MODEL,
+}: StoryboardPanelParams): Promise<string> {
+  console.log(`Using outline image: ${outlineImagePath}`);
+
+  let output: unknown;
+
+  if (model === "nano-banana-pro" || model === "nano-banana") {
+    // Convert local outline path to accessible URL (base64)
+    const outlineUrl = toAccessibleUrl(outlineImagePath);
+
+    const input: Record<string, unknown> = {
+      prompt: prompt,
+      aspect_ratio: "3:2",
+      output_format: "png",
+      // Use outline image as input reference
+      image_input: [outlineUrl],
+    };
+
+    if (model === "nano-banana-pro") {
+      input.resolution = "2K";
+      input.safety_filter_level = "block_only_high";
+    }
+
+    console.log("Replicate storyboard input:", {
+      model,
+      prompt: prompt.slice(0, 100) + "...",
+      outline_image: outlineImagePath,
+    });
+
+    output = await replicate.run(IMAGE_MODELS[model].id, { input });
+  } else {
+    // Fallback without outline
+    output = await replicate.run(IMAGE_MODELS["nano-banana-pro"].id, {
+      input: {
+        prompt: prompt,
+        aspect_ratio: "3:2",
+        resolution: "2K",
+        output_format: "png",
+        safety_filter_level: "block_only_high",
+      },
+    });
+  }
+
+  const imageUrl = await extractImageUrl(output);
+  console.log("Generated storyboard panel:", imageUrl);
+  return imageUrl;
 }
 
 /**
  * Generate all storyboard panels for composition approval
  * Returns panels with sketchUrl populated
  * Includes rate limiting to avoid 429 errors
- * No reference image needed - just composition sketches
+ * Uses outline.png as input for consistent character placement across all panels
  */
 export async function generateAllStoryboardPanels(
   pages: StoryPage[],
