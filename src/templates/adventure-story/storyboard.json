@@ -1,13 +1,13 @@
 {
   "storyId": "adventure-story",
   "createdAt": "2026-01-28T12:58:46.690Z",
-  "updatedAt": "2026-01-29T10:23:08.390Z",
+  "updatedAt": "2026-01-29T14:36:35.513Z",
   "panels": [
     {
       "page": 1,
       "scene": "Child standing in sunny backyard garden, noticing something unusual",
       "textPlacement": "bottom",
-      "sketchUrl": "https://replicate.delivery/xezq/QZjFV3lsiBKnL1BfvbjFfnOpro1bxBTuVkvLqoyEavBzbOCWA/tmp1k4kjbwe.png",
+      "sketchUrl": "https://replicate.delivery/xezq/rLH4moLFznJKNpu3xYC0QcSLuP3l074ffpyjoJFJlIT0hPCWA/tmp4b4hm6pl.png",
       "approved": true
     },
     {
@@ -42,22 +42,22 @@
       "page": 6,
       "scene": "Child walking through forest with owl flying alongside",
       "textPlacement": "bottom",
-      "sketchUrl": "https://replicate.delivery/xezq/6F846zmstJJEDFwLNWkefSQ0Nu2WUS9Etmz2ghJsv0LxOACWA/tmpfr5k722d.png",
-      "approved": false
+      "sketchUrl": "/storyboard/panel-6.png",
+      "approved": true
     },
     {
       "page": 7,
       "scene": "Child discovering baby dragon stuck in thornbush",
       "textPlacement": "right",
       "sketchUrl": "/storyboard/panel-7.png",
-      "approved": false
+      "approved": true
     },
     {
       "page": 8,
       "scene": "Child carefully helping free the baby dragon",
       "textPlacement": "bottom",
       "sketchUrl": "/storyboard/panel-8.png",
-      "approved": false
+      "approved": true
     },
     {
       "page": 9,

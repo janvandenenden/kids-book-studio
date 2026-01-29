@@ -6,16 +6,9 @@ const replicate = new Replicate({
 });
 
 // Available models for image generation
-export type ImageModel = "ip-adapter" | "nano-banana" | "nano-banana-pro";
+export type ImageModel = "nano-banana" | "nano-banana-pro";
 
 export const IMAGE_MODELS = {
-  "ip-adapter": {
-    id: "lucataco/ip_adapter-sdxl-face:226c6bf67a75a129b0f978e518fed33e1fb13956e15761c1ac53c9d2f898c9af" as const,
-    name: "IP-Adapter (Face Reference)",
-    description: "Uses face as reference, may look more photorealistic",
-    supportsNegativePrompt: true,
-    tier: "standard" as const,
-  },
   "nano-banana": {
     id: "google/nano-banana:d05a591283da31be3eea28d5634ef9e26989b351718b6489bd308426ebd0a3e8" as const,
     name: "Google Nano Banana (Budget)",
@@ -185,7 +178,6 @@ async function extractImageUrl(output: unknown): Promise<string> {
 export async function generateImage({
   prompt,
   referenceImageUrl,
-  negativePrompt = GLOBAL_NEGATIVE_PROMPT,
   model = DEFAULT_MODEL,
 }: GenerateImageParams): Promise<string> {
   console.log(`Generating with ${model}:`, {
@@ -215,19 +207,6 @@ export async function generateImage({
 
     output = await replicate.run(IMAGE_MODELS[model].id, {
       input,
-    });
-  } else if (model === "ip-adapter" && referenceImageUrl) {
-    // IP-Adapter: Uses face reference for consistency
-    // Lower scale = more stylized, less photorealistic
-    output = await replicate.run(IMAGE_MODELS["ip-adapter"].id, {
-      input: {
-        image: toAccessibleUrl(referenceImageUrl),
-        prompt: prompt,
-        negative_prompt: negativePrompt,
-        scale: 0.4, // Lower scale for more illustrated look
-        num_outputs: 1,
-        num_inference_steps: 30,
-      },
     });
   } else {
     // Fallback: Nano Banana Pro without reference
@@ -303,9 +282,6 @@ export async function generateCharacterSheet(
   return generateCharacterSheetImage({
     prompt,
     referenceImageUrl,
-    negativePrompt:
-      GLOBAL_NEGATIVE_PROMPT +
-      ", photorealistic, photograph, profile view, looking away, cropped, partial body, close-up",
     model,
   });
 }
@@ -316,7 +292,7 @@ export async function generateCharacterSheet(
 async function generateCharacterSheetImage({
   prompt,
   referenceImageUrl,
-  negativePrompt = GLOBAL_NEGATIVE_PROMPT,
+  negativePrompt: _negativePrompt = GLOBAL_NEGATIVE_PROMPT,
   model = DEFAULT_MODEL,
 }: GenerateImageParams): Promise<string> {
   console.log(`Generating character sheet with ${model}:`, {
@@ -342,17 +318,6 @@ async function generateCharacterSheetImage({
     }
 
     output = await replicate.run(IMAGE_MODELS[model].id, { input });
-  } else if (model === "ip-adapter" && referenceImageUrl) {
-    output = await replicate.run(IMAGE_MODELS["ip-adapter"].id, {
-      input: {
-        image: toAccessibleUrl(referenceImageUrl),
-        prompt: prompt,
-        negative_prompt: negativePrompt,
-        scale: 0.4,
-        num_outputs: 1,
-        num_inference_steps: 30,
-      },
-    });
   } else {
     output = await replicate.run(IMAGE_MODELS["nano-banana-pro"].id, {
       input: {
@@ -448,10 +413,7 @@ export async function regeneratePage(
  * Build prompt for B&W storyboard panel
  * Simple scene description with generic character outline
  */
-export function buildStoryboardPanelPrompt(
-  page: StoryPage,
-  characterType: "boy" | "girl" | "child" = "child",
-): string {
+export function buildStoryboardPanelPrompt(page: StoryPage): string {
   const compositionHints: Record<string, string> = {
     wide: "wide shot showing full scene and environment",
     medium: "medium shot showing character and surroundings",
@@ -479,10 +441,9 @@ export function buildStoryboardPanelPrompt(
  */
 export async function generateStoryboardPanel(
   page: StoryPage,
-  characterType: "boy" | "girl" | "child" = "child",
   model: ImageModel = DEFAULT_MODEL,
 ): Promise<string> {
-  const prompt = buildStoryboardPanelPrompt(page, characterType);
+  const prompt = buildStoryboardPanelPrompt(page);
 
   console.log(
     `Generating storyboard panel ${page.page}:`,
@@ -491,8 +452,6 @@ export async function generateStoryboardPanel(
 
   return generateImage({
     prompt,
-    // No reference image for storyboard - just composition sketches
-    negativePrompt: STORYBOARD_NEGATIVE_PROMPT,
     model,
   });
 }
@@ -505,7 +464,6 @@ export async function generateStoryboardPanel(
  */
 export async function generateAllStoryboardPanels(
   pages: StoryPage[],
-  characterType: "boy" | "girl" | "child" = "child",
   model: ImageModel = DEFAULT_MODEL,
   onProgress?: (current: number, total: number, panel: StoryboardPanel) => void,
 ): Promise<StoryboardPanel[]> {
@@ -535,11 +493,7 @@ export async function generateAllStoryboardPanels(
         `Generating storyboard panel ${page.page} (${i + 1}/${pages.length})...`,
       );
 
-      const sketchUrl = await generateStoryboardPanel(
-        page,
-        characterType,
-        model,
-      );
+      const sketchUrl = await generateStoryboardPanel(page, model);
 
       const panel: StoryboardPanel = {
         page: page.page,
@@ -582,7 +536,6 @@ export async function generateImg2Img({
   initImageUrl,
   referenceImageUrl,
   strength = 0.75,
-  negativePrompt = GLOBAL_NEGATIVE_PROMPT,
   model = DEFAULT_MODEL,
 }: Img2ImgParams): Promise<string> {
   console.log(
@@ -618,29 +571,16 @@ export async function generateImg2Img({
       model,
       prompt: prompt.slice(0, 100) + "...",
       image_input_count: (input.image_input as string[]).length,
-      image_input_types: (input.image_input as string[]).map(url =>
-        url.startsWith("data:") ? "base64" : url.startsWith("http") ? "url" : "unknown"
+      image_input_types: (input.image_input as string[]).map((url) =>
+        url.startsWith("data:")
+          ? "base64"
+          : url.startsWith("http")
+            ? "url"
+            : "unknown",
       ),
     });
 
     output = await replicate.run(IMAGE_MODELS[model].id, { input });
-  } else if (model === "ip-adapter") {
-    // IP-Adapter with init image support
-    // Convert local paths to full URLs
-    const refUrl = referenceImageUrl
-      ? toAccessibleUrl(referenceImageUrl)
-      : toAccessibleUrl(initImageUrl);
-
-    output = await replicate.run(IMAGE_MODELS["ip-adapter"].id, {
-      input: {
-        image: refUrl,
-        prompt: prompt,
-        negative_prompt: negativePrompt,
-        scale: 0.4,
-        num_outputs: 1,
-        num_inference_steps: 30,
-      },
-    });
   } else {
     // Fallback
     output = await replicate.run(IMAGE_MODELS["nano-banana-pro"].id, {

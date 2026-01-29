@@ -41,17 +41,6 @@ export async function downloadAndSaveImage(
 // Re-export types for convenience
 export type { Storyboard, StoryPage, PromptsTemplate };
 
-// Legacy interface for backwards compatibility
-export interface Story {
-  title: string;
-  pages: Array<{
-    pageNumber: number;
-    text: string;
-    hasIllustration: boolean;
-    imageUrl?: string;
-  }>;
-}
-
 export function loadStoryTemplate(): { story: typeof storyData; prompts: typeof promptsData } {
   return {
     story: storyData,
@@ -87,22 +76,6 @@ export function generateStoryboard(name: string): Storyboard {
   };
 }
 
-/**
- * Legacy function for backwards compatibility
- */
-export function generateStory(name: string): Story {
-  const storyboard = generateStoryboard(name);
-
-  return {
-    title: storyboard.title,
-    pages: storyboard.pages.map((page) => ({
-      pageNumber: page.page,
-      text: page.text,
-      hasIllustration: true, // All pages have illustrations in enhanced format
-    })),
-  };
-}
-
 export function getPromptsTemplate(): PromptsTemplate {
   const { prompts } = loadStoryTemplate();
   return {
@@ -111,15 +84,6 @@ export function getPromptsTemplate(): PromptsTemplate {
     negativePrompt: prompts.negativePrompt,
     pages: prompts.pages,
   };
-}
-
-/**
- * Get the prompt for a specific page
- */
-export function getPagePrompt(pageNumber: number): string | null {
-  const { prompts } = loadStoryTemplate();
-  const pagePrompt = prompts.pages.find((p) => p.page === pageNumber);
-  return pagePrompt?.prompt || null;
 }
 
 /**
@@ -138,26 +102,6 @@ export function mergeStoryboardWithImages(
     pages: storyboard.pages.map((page) => ({
       ...page,
       imageUrl: imageMap.get(page.page),
-    })),
-  };
-}
-
-/**
- * Legacy function - merge images into Story type
- */
-export function mergeStoryWithImages(
-  story: Story,
-  generatedImages: { pageNumber: number; imageUrl: string }[]
-): Story {
-  const imageMap = new Map(
-    generatedImages.map((img) => [img.pageNumber, img.imageUrl])
-  );
-
-  return {
-    ...story,
-    pages: story.pages.map((page) => ({
-      ...page,
-      imageUrl: imageMap.get(page.pageNumber),
     })),
   };
 }

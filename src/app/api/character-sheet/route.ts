@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const characterSheetUrl = await generateCharacterSheet(
       characterDescription,
       referenceImageUrl,
-      (model as ImageModel) || "ip-adapter"
+      (model as ImageModel) || "nano-banana-pro"
     );
 
     console.log("Character sheet generated:", characterSheetUrl);
