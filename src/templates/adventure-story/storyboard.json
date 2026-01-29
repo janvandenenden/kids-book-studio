@@ -1,13 +1,13 @@
 {
   "storyId": "adventure-story",
   "createdAt": "2026-01-28T12:58:46.690Z",
-  "updatedAt": "2026-01-29T15:09:47.983Z",
+  "updatedAt": "2026-01-29T19:07:06.531Z",
   "panels": [
     {
       "page": 1,
-      "scene": "Child standing in sunny backyard garden, noticing something unusual",
+      "scene": "Outline standing in sunny backyard garden, noticing something unusual",
       "textPlacement": "bottom",
-      "sketchUrl": "https://replicate.delivery/xezq/lfknpp53QNQfMUyxhbXqf88ytkDfioa6zU4z6NmWmSa6hKJYB/tmppf3jxddy.png",
+      "sketchUrl": "/storyboard/panel-1.png",
       "approved": true
     },
     {
@@ -47,14 +47,14 @@
     },
     {
       "page": 7,
-      "scene": "Child discovering baby dragon stuck in thornbush",
+      "scene": "Outline discovering baby dragon stuck in thornbush",
       "textPlacement": "right",
       "sketchUrl": "/storyboard/panel-7.png",
       "approved": true
     },
     {
       "page": 8,
-      "scene": "Child carefully helping free the baby dragon",
+      "scene": "Outline carefully helping free the baby dragon",
       "textPlacement": "bottom",
       "sketchUrl": "/storyboard/panel-8.png",
       "approved": true
@@ -68,7 +68,7 @@
     },
     {
       "page": 10,
-      "scene": "Child surrounded by grateful forest creatures celebrating",
+      "scene": "Outline surrounded by grateful forest creatures celebrating",
       "textPlacement": "bottom",
       "sketchUrl": "/storyboard/panel-10.png",
       "approved": true

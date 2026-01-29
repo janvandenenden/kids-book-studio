@@ -1,6 +1,7 @@
 import storyData from "@/templates/adventure-story/story.json";
 import promptsData from "@/templates/adventure-story/prompts.json";
-import type { Storyboard, StoryPage, PromptsTemplate, StoryboardPanel } from "@/types";
+import propBibleData from "@/templates/adventure-story/prop-bible.json";
+import type { Storyboard, StoryPage, PromptsTemplate, StoryboardPanel, PropBible } from "@/types";
 import fs from "fs";
 import path from "path";
 
@@ -39,13 +40,72 @@ export async function downloadAndSaveImage(
 }
 
 // Re-export types for convenience
-export type { Storyboard, StoryPage, PromptsTemplate };
+export type { Storyboard, StoryPage, PromptsTemplate, PropBible };
 
 export function loadStoryTemplate(): { story: typeof storyData; prompts: typeof promptsData } {
   return {
     story: storyData,
     prompts: promptsData,
   };
+}
+
+/**
+ * Load the prop bible for a story template
+ * Contains reusable descriptions for props, environments, and scene groups
+ */
+export function loadPropBible(): PropBible {
+  return propBibleData as PropBible;
+}
+
+/**
+ * Get the path to the prop bible file for a story template
+ * Server-side only (uses fs)
+ */
+function getPropBiblePath(storyId: string = "adventure-story"): string {
+  const templatesDir = path.join(process.cwd(), "src", "templates", storyId);
+  return path.join(templatesDir, "prop-bible.json");
+}
+
+/**
+ * Load prop bible from filesystem (allows for runtime modifications)
+ * Server-side only (uses fs)
+ */
+export function loadPropBibleFromFile(storyId: string = "adventure-story"): PropBible | null {
+  try {
+    const propBiblePath = getPropBiblePath(storyId);
+
+    if (!fs.existsSync(propBiblePath)) {
+      console.log(`No prop bible found at ${propBiblePath}`);
+      return null;
+    }
+
+    const data = fs.readFileSync(propBiblePath, "utf-8");
+    const propBible = JSON.parse(data) as PropBible;
+    console.log(`Loaded prop bible for ${storyId}`);
+    return propBible;
+  } catch (error) {
+    console.error(`Failed to load prop bible for ${storyId}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Save prop bible to the templates folder
+ * Server-side only (uses fs)
+ */
+export function savePropBible(
+  propBible: PropBible,
+  storyId: string = "adventure-story"
+): boolean {
+  try {
+    const propBiblePath = getPropBiblePath(storyId);
+    fs.writeFileSync(propBiblePath, JSON.stringify(propBible, null, 2));
+    console.log(`Saved prop bible for ${storyId} to ${propBiblePath}`);
+    return true;
+  } catch (error) {
+    console.error(`Failed to save prop bible for ${storyId}:`, error);
+    return false;
+  }
 }
 
 export function replacePlaceholders(text: string, name: string): string {
@@ -66,6 +126,8 @@ export function generateStoryboard(name: string): Storyboard {
     pages: story.pages.map((page) => ({
       page: page.page,
       scene: page.scene,
+      props: (page as { props?: string[] }).props,
+      environment: (page as { environment?: string }).environment,
       emotion: page.emotion,
       action: page.action,
       setting: page.setting,

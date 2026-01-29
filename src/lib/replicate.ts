@@ -1,5 +1,5 @@
 import Replicate from "replicate";
-import type { StoryPage, StoryboardPanel } from "@/types";
+import type { StoryPage, StoryboardPanel, PropBible } from "@/types";
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
@@ -38,16 +38,16 @@ export const GLOBAL_NEGATIVE_PROMPT = `extra characters, multiple children, inco
 export const STORYBOARD_STYLE_PROMPT = `loose sketch, soft shapes, simplified forms, low detail, black and white only, no text, no border, minimal background`;
 
 // Path to the child outline image used as img2img input for storyboard panels
-export const STORYBOARD_OUTLINE_PATH = "/outline.png";
+export const STORYBOARD_OUTLINE_PATH = "/outline-2.png";
 
 // Storyboard negative prompt - excludes color, text, borders
 export const STORYBOARD_NEGATIVE_PROMPT = `color, vibrant, colorful, detailed, finished, polished, text, words, letters, border, frame, complex shading, realistic, photorealistic, saturated, border`;
 
 // Rate limiting: wait between API calls to avoid 429 errors
 // Replicate limits to 6 requests/minute with low credit balance
-const RATE_LIMIT_DELAY_MS = 12000; // 12 seconds between requests (safe for 6/min limit)
+export const RATE_LIMIT_DELAY_MS = 12000; // 12 seconds between requests (safe for 6/min limit)
 
-async function delay(ms: number): Promise<void> {
+export async function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -425,9 +425,97 @@ export function buildStoryboardPanelPrompt(page: StoryPage): string {
   const layout = layoutHints[page.layout] || "";
 
   // Prompt focuses on placing the outline figure in the scene
-  const prompt = `Place the child outline from the input image into this scene: ${page.scene}. ${composition}. ${layout}. Style: ${STORYBOARD_STYLE_PROMPT}`;
+  const prompt = `Place the outline from the input image into this scene: ${page.scene}. ${composition}. ${layout}. Style: ${STORYBOARD_STYLE_PROMPT}`;
 
   return prompt;
+}
+
+/**
+ * Build prompt for B&W storyboard panel with prop bible descriptions
+ * Injects consistent prop and environment descriptions for visual continuity
+ */
+export function buildStoryboardPanelPromptWithProps(
+  page: StoryPage,
+  propBible: PropBible,
+): string {
+  const defaultCompositionHints: Record<string, string> = {
+    wide: "wide shot showing full scene and environment",
+    medium: "medium shot showing character and surroundings",
+    close: "close-up shot focusing on character",
+  };
+
+  const layoutHints: Record<string, string> = {
+    left_text: "main subject on the right side, empty space on left",
+    right_text: "main subject on the left side, empty space on right",
+    bottom_text: "main action in upper two-thirds, clear lower area",
+    full_bleed: "balanced full scene composition",
+  };
+
+  // Check for per-page composition from prop bible
+  let compositionHint = "";
+  if (propBible.compositions && propBible.compositions[page.page]) {
+    compositionHint = propBible.compositions[page.page];
+  }
+
+  // Fall back to default composition hint if no prop bible override
+  if (!compositionHint) {
+    compositionHint =
+      defaultCompositionHints[page.composition_hint] || "medium shot";
+  }
+
+  const layout = layoutHints[page.layout] || "";
+
+  // Build prop descriptions from prop bible
+  const propDescriptions: string[] = [];
+  if (page.props && page.props.length > 0) {
+    for (const propKey of page.props) {
+      const prop = propBible.props[propKey];
+      if (prop) {
+        propDescriptions.push(prop.description);
+      }
+    }
+  }
+
+  // Get environment description from prop bible
+  let environmentDescription = "";
+  if (page.environment && propBible.environments[page.environment]) {
+    environmentDescription =
+      propBible.environments[page.environment].description;
+  }
+
+  // Build the enhanced prompt
+  const parts: string[] = [
+    `Place the outline from the input image into this scene: ${page.scene}`,
+  ];
+
+  // Add key objects if we have prop descriptions
+  if (propDescriptions.length > 0) {
+    parts.push(`Key objects: ${propDescriptions.join("; ")}`);
+  }
+
+  // Add environment description
+  if (environmentDescription) {
+    parts.push(`Environment: ${environmentDescription}`);
+  }
+
+  // Add composition hint (from scene group or default)
+  parts.push(`Composition: ${compositionHint}`);
+
+  // Add layout hint for text placement
+  if (layout) {
+    parts.push(layout);
+  }
+
+  // Add global instructions if present
+  if (propBible.globalInstructions) {
+    parts.push(propBible.globalInstructions);
+  }
+
+  // Add style from prop bible or fall back to default
+  const stylePrompt = propBible.globalStyle || STORYBOARD_STYLE_PROMPT;
+  parts.push(`Style: ${stylePrompt}`);
+
+  return parts.join(". ") + ".";
 }
 
 /**
@@ -446,6 +534,31 @@ export async function generateStoryboardPanel(
   );
 
   // Use outline image as init_image for consistent character across panels
+  return generateStoryboardPanelWithOutline({
+    prompt,
+    outlineImagePath: STORYBOARD_OUTLINE_PATH,
+    model,
+  });
+}
+
+/**
+ * Generate a single B&W storyboard panel with prop bible
+ * Uses consistent prop/environment descriptions for visual continuity
+ * Note: Reference image chaining was removed as it caused panels to look too similar
+ */
+export async function generateStoryboardPanelWithProps(
+  page: StoryPage,
+  propBible: PropBible,
+  model: ImageModel = DEFAULT_MODEL,
+): Promise<string> {
+  const prompt = buildStoryboardPanelPromptWithProps(page, propBible);
+
+  console.log(
+    `Generating storyboard panel ${page.page} with prop bible:`,
+    prompt.slice(0, 150) + "...",
+  );
+
+  // Use outline image only - prop bible text descriptions handle consistency
   return generateStoryboardPanelWithOutline({
     prompt,
     outlineImagePath: STORYBOARD_OUTLINE_PATH,
@@ -552,6 +665,72 @@ export async function generateAllStoryboardPanels(
       );
 
       const sketchUrl = await generateStoryboardPanel(page, model);
+
+      const panel: StoryboardPanel = {
+        page: page.page,
+        scene: page.scene,
+        textPlacement: textPlacementMap[page.layout] || "bottom",
+        sketchUrl,
+        approved: false,
+      };
+
+      panels.push(panel);
+
+      // Report progress if callback provided
+      if (onProgress) {
+        onProgress(i + 1, pages.length, panel);
+      }
+    } catch (error) {
+      console.error(`Failed to generate storyboard panel ${page.page}:`, error);
+      throw error;
+    }
+  }
+
+  return panels;
+}
+
+/**
+ * Generate all storyboard panels with prop bible for visual consistency
+ * Uses text-based prop/environment descriptions for consistency (no image chaining)
+ * Returns panels with sketchUrl populated
+ */
+export async function generateAllStoryboardPanelsWithProps(
+  pages: StoryPage[],
+  propBible: PropBible,
+  model: ImageModel = DEFAULT_MODEL,
+  onProgress?: (current: number, total: number, panel: StoryboardPanel) => void,
+): Promise<StoryboardPanel[]> {
+  const panels: StoryboardPanel[] = [];
+
+  const textPlacementMap: Record<string, "left" | "right" | "bottom" | "top"> =
+    {
+      left_text: "left",
+      right_text: "right",
+      bottom_text: "bottom",
+      full_bleed: "bottom",
+    };
+
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i];
+
+    // Rate limiting: wait between requests (skip for first request)
+    if (i > 0) {
+      console.log(
+        `Rate limiting: waiting ${RATE_LIMIT_DELAY_MS / 1000}s before next request...`,
+      );
+      await delay(RATE_LIMIT_DELAY_MS);
+    }
+
+    try {
+      console.log(
+        `Generating storyboard panel ${page.page} (${i + 1}/${pages.length}) with prop bible...`,
+      );
+
+      const sketchUrl = await generateStoryboardPanelWithProps(
+        page,
+        propBible,
+        model,
+      );
 
       const panel: StoryboardPanel = {
         page: page.page,

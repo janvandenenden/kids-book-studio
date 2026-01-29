@@ -26,7 +26,9 @@ interface StoryboardData {
 export default function PreviewPage() {
   const router = useRouter();
   const [bookData, setBookData] = useState<BookData | null>(null);
-  const [storyboardData, setStoryboardData] = useState<StoryboardData | null>(null);
+  const [storyboardData, setStoryboardData] = useState<StoryboardData | null>(
+    null,
+  );
   const [story, setStory] = useState<Storyboard | null>(null);
   const [status, setStatus] = useState<GenerationStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -46,8 +48,14 @@ export default function PreviewPage() {
 
     try {
       const data = JSON.parse(bookDataStr) as BookData;
-      if (!data.childName || !data.characterDescription || !data.characterSheetUrl) {
-        throw new Error("Incomplete book data - character illustration required");
+      if (
+        !data.childName ||
+        !data.characterDescription ||
+        !data.characterSheetUrl
+      ) {
+        throw new Error(
+          "Incomplete book data - character illustration required",
+        );
       }
       setBookData(data);
 
@@ -62,31 +70,43 @@ export default function PreviewPage() {
   const loadStoryboardAndGenerate = async (data: BookData) => {
     try {
       // Fetch the pre-made storyboard from the server
-      const response = await fetch("/api/admin/storyboard?storyId=adventure-story");
+      const response = await fetch(
+        "/api/admin/storyboard?storyId=adventure-story",
+      );
 
       if (response.ok) {
         const storyboardResponse = await response.json();
 
-        if (storyboardResponse.storyboard && storyboardResponse.storyboard.panels) {
+        if (
+          storyboardResponse.storyboard &&
+          storyboardResponse.storyboard.panels
+        ) {
           // Filter to only approved panels
           const approvedPanels = storyboardResponse.storyboard.panels.filter(
-            (p: StoryboardPanel) => p.approved
+            (p: StoryboardPanel) => p.approved,
           );
 
           if (approvedPanels.length > 0) {
-            console.log(`Using ${approvedPanels.length} approved storyboard panels for img2img`);
+            console.log(
+              `Using ${approvedPanels.length} approved storyboard panels for img2img`,
+            );
             setStoryboardData({
               panels: approvedPanels,
               storyboard: storyboardResponse.story,
             });
-            generateBook(data, { panels: approvedPanels, storyboard: storyboardResponse.story });
+            generateBook(data, {
+              panels: approvedPanels,
+              storyboard: storyboardResponse.story,
+            });
             return;
           }
         }
       }
 
       // No storyboard available, generate without it
-      console.log("No approved storyboard found, generating without composition guidance");
+      console.log(
+        "No approved storyboard found, generating without composition guidance",
+      );
       generateBook(data, null);
     } catch (err) {
       console.error("Failed to load storyboard:", err);
@@ -95,7 +115,10 @@ export default function PreviewPage() {
     }
   };
 
-  const generateBook = async (data: BookData, storyboard: StoryboardData | null = null) => {
+  const generateBook = async (
+    data: BookData,
+    storyboard: StoryboardData | null = null,
+  ) => {
     setStatus("generating");
     setError(null);
 
@@ -172,7 +195,7 @@ export default function PreviewPage() {
       return {
         ...prev,
         pages: prev.pages.map((p) =>
-          p.page === pageNumber ? { ...p, imageUrl: data.imageUrl } : p
+          p.page === pageNumber ? { ...p, imageUrl: data.imageUrl } : p,
         ),
       };
     });
@@ -262,7 +285,11 @@ export default function PreviewPage() {
               />
             </div>
             <p className="text-xs text-gray-400 mt-4">
-              Using {bookData?.model === "nano-banana-pro" ? "Google Nano Banana Pro" : "IP-Adapter"} for image generation
+              Using{" "}
+              {bookData?.model === "nano-banana-pro"
+                ? "Google Nano Banana Pro"
+                : "IP-Adapter"}{" "}
+              for image generation
             </p>
           </div>
         )}

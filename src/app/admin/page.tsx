@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { StoryboardPanel, Storyboard } from "@/types";
+import { PropBibleEditor } from "@/components/PropBibleEditor";
+import type { StoryboardPanel, Storyboard, PropBible } from "@/types";
 import type { ImageModel } from "@/lib/replicate";
 
 interface StoredStoryboard {
@@ -57,6 +58,10 @@ export default function AdminPage() {
   } | null>(null);
   const [isSavingCharacter, setIsSavingCharacter] = useState(false);
 
+  // Prop Bible
+  const [propBible, setPropBible] = useState<PropBible | null>(null);
+  const [usePropBible, setUsePropBible] = useState(true);
+
   // Auth header for API calls
   const getAuthHeader = () => ({
     Authorization: `Bearer ${password}`,
@@ -68,7 +73,44 @@ export default function AdminPage() {
     loadStoryboard();
     loadSavedCharacters();
     loadSessionCharacter();
+    loadPropBible();
   }, []);
+
+  const loadPropBible = async () => {
+    try {
+      const response = await fetch("/api/admin/prop-bible", {
+        headers: password ? getAuthHeader() : {},
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPropBible(data.propBible);
+      }
+    } catch (error) {
+      console.error("Failed to load prop bible:", error);
+    }
+  };
+
+  const handleSavePropBible = async (updatedPropBible: PropBible) => {
+    const response = await fetch("/api/admin/prop-bible", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify({
+        propBible: updatedPropBible,
+        storyId: "adventure-story",
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to save prop bible");
+    }
+
+    const data = await response.json();
+    setPropBible(data.propBible);
+  };
 
   const loadSessionCharacter = () => {
     // Load character from sessionStorage (from the normal user flow)
@@ -251,6 +293,7 @@ export default function AdminPage() {
           characterType,
           model: selectedModel,
           pageLimit: pageLimit || undefined,
+          usePropBible,
         }),
       });
 
@@ -369,6 +412,7 @@ export default function AdminPage() {
           pageData,
           characterType,
           model: selectedModel,
+          usePropBible,
         }),
       });
 
@@ -510,6 +554,23 @@ export default function AdminPage() {
               </div>
             </div>
 
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="usePropBible"
+                checked={usePropBible}
+                onChange={(e) => setUsePropBible(e.target.checked)}
+                disabled={status === "generating"}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <label htmlFor="usePropBible" className="text-sm font-medium">
+                Use Prop Bible
+              </label>
+              <span className="text-xs text-gray-500">
+                (Inject consistent prop & environment descriptions)
+              </span>
+            </div>
+
             <div className="flex gap-4">
               <Button
                 onClick={generateStoryboard}
@@ -648,6 +709,15 @@ export default function AdminPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Prop Bible Editor */}
+        {propBible && (
+          <PropBibleEditor
+            propBible={propBible}
+            onSave={handleSavePropBible}
+            getAuthHeader={getAuthHeader}
+          />
+        )}
 
         {/* Error Display */}
         {error && (
