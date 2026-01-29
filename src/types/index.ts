@@ -1,3 +1,23 @@
+// Prop Bible types - for consistent object/environment descriptions
+export interface Prop {
+  description: string;
+  appearances: number[];
+}
+
+export interface Environment {
+  description: string;
+  appearances: number[];
+}
+
+export interface PropBible {
+  storyId: string;
+  globalStyle?: string;           // Style prompt always included
+  globalInstructions?: string;    // Additional instructions for every panel
+  compositions?: Record<number, string>;  // Per-page camera angle/composition hints
+  props: Record<string, Prop>;
+  environments: Record<string, Environment>;
+}
+
 // Character Profile - extracted from reference photo
 export interface CharacterProfile {
   character_name: string;
@@ -29,6 +49,8 @@ export interface CharacterProfile {
 export interface StoryPage {
   page: number;
   scene: string;
+  props?: string[];           // Prop keys from prop bible
+  environment?: string;       // Environment key from prop bible
   emotion: string;
   action: string;
   setting: string;

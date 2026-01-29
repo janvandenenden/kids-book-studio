@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateStoryboardPanel, ImageModel } from "@/lib/replicate";
+import {
+  generateStoryboardPanel,
+  generateStoryboardPanelWithProps,
+  ImageModel,
+} from "@/lib/replicate";
+import { downloadAndSaveImage } from "@/lib/server-utils";
+import { loadPropBible } from "@/lib/story-template";
 import type { StoryPage, StoryboardPanel } from "@/types";
 
 export const maxDuration = 120; // 2 minutes for single panel regeneration
@@ -10,8 +16,8 @@ export async function POST(request: NextRequest) {
     const {
       pageNumber,
       pageData,
-      characterType = "child", // "boy" | "girl" | "child"
       model,
+      usePropBible = true, // Use prop bible by default
     } = body;
 
     if (!pageNumber) {
@@ -26,11 +32,33 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`Regenerating storyboard panel ${pageNumber}`);
+    console.log(`  Use prop bible: ${usePropBible}`);
 
-    // Generate single B&W storyboard panel (no reference image needed)
-    const sketchUrl = await generateStoryboardPanel(
-      pageData as StoryPage,
-      (model as ImageModel) || "nano-banana-pro",
+    let sketchUrl: string;
+
+    if (usePropBible) {
+      // Load prop bible for consistent object/environment descriptions
+      const propBible = loadPropBible();
+
+      // Generate with prop bible (text-based consistency only)
+      sketchUrl = await generateStoryboardPanelWithProps(
+        pageData as StoryPage,
+        propBible,
+        (model as ImageModel) || "nano-banana-pro",
+      );
+    } else {
+      // Generate without prop bible (legacy behavior)
+      sketchUrl = await generateStoryboardPanel(
+        pageData as StoryPage,
+        (model as ImageModel) || "nano-banana-pro",
+      );
+    }
+
+    // Download and save image locally to prevent URL expiration
+    const localSketchUrl = await downloadAndSaveImage(
+      sketchUrl,
+      `panel-${pageNumber}.png`,
+      "storyboard"
     );
 
     // Determine text placement from layout
@@ -49,15 +77,16 @@ export async function POST(request: NextRequest) {
       scene: (pageData as StoryPage).scene,
       textPlacement:
         textPlacementMap[(pageData as StoryPage).layout] || "bottom",
-      sketchUrl,
+      sketchUrl: localSketchUrl,
       approved: false,
     };
 
-    console.log(`Regenerated panel ${pageNumber}: ${sketchUrl}`);
+    console.log(`Regenerated panel ${pageNumber}: ${localSketchUrl}`);
 
     return NextResponse.json({
       success: true,
       panel,
+      usedPropBible: usePropBible,
     });
   } catch (error) {
     console.error("Panel regeneration error:", error);

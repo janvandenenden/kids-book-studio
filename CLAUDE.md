@@ -217,16 +217,23 @@ Home (/) → Upload → Analyze → Character Approval
 
 - Black & white only (grayscale pencil sketch)
 - Loose sketch, soft shapes, simplified forms, low detail
-- Generic character outline (boy/girl/child)
-- No reference image needed - just composition sketches
+- Uses `public/outline.png` as input image for consistent character placement
+- Outline image provides the base child figure, prompt focuses on scene composition
 
 ### Storyboard Prompt Structure
 
 ```
-Create an image for a minimal video storyboard-style panel for the following scene:
-[scene description]. Outline of a young [boy/girl/child].
-Style: loose sketch, soft shapes, simplified forms, low detail, black and white
+Place the child outline from the input image into this scene: [scene description].
+[composition hint]. [layout hint].
+Style: loose sketch, soft shapes, simplified forms, low detail, black and white only, no text, no border, minimal background
 ```
+
+### Outline Image
+
+The `public/outline.png` file contains a simple child silhouette/outline that is used as input for all storyboard panel generation. This ensures:
+- Consistent character positioning across all panels
+- Focus on scene composition rather than character generation
+- Better consistency between panels for the same story
 
 ### img2img Generation
 

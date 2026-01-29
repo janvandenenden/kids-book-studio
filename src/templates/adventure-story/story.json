@@ -6,7 +6,8 @@
   "pages": [
     {
       "page": 1,
-      "scene": "Child standing in sunny backyard garden, noticing something unusual",
+      "scene": "Outline standing in sunny backyard garden, noticing something unusual",
+      "environment": "backyard_garden",
       "emotion": "curious, excited",
       "action": "exploring the garden",
       "setting": "bright sunny backyard with colorful flowers and butterflies",
@@ -16,7 +17,9 @@
     },
     {
       "page": 2,
-      "scene": "Child discovering a tiny magical door hidden behind garden shed",
+      "scene": "Outline discovering a tiny magical door hidden behind garden shed",
+      "props": ["magical_door", "garden_shed"],
+      "environment": "backyard_garden",
       "emotion": "surprised, wonder",
       "action": "kneeling down to look at small door",
       "setting": "garden shed corner with ivy and golden light from door crack",
@@ -26,7 +29,8 @@
     },
     {
       "page": 3,
-      "scene": "Child reaching toward the tiny door handle",
+      "scene": "Outline reaching toward the tiny door handle",
+      "props": ["magical_door"],
       "emotion": "brave, determined",
       "action": "reaching for golden door handle",
       "setting": "close view of magical door with intricate patterns",
@@ -36,7 +40,8 @@
     },
     {
       "page": 4,
-      "scene": "Child stepping into magical forest with glowing flowers",
+      "scene": "Outline stepping into magical forest with glowing flowers",
+      "environment": "magical_forest",
       "emotion": "amazed, joyful",
       "action": "stepping through doorway into magical world",
       "setting": "enchanted forest with glowing blue and pink flowers, soft magical lighting",
@@ -46,7 +51,9 @@
     },
     {
       "page": 5,
-      "scene": "Child meeting a wise friendly owl on a branch",
+      "scene": "Outline meeting a wise friendly owl on a branch",
+      "props": ["wise_owl"],
+      "environment": "magical_forest",
       "emotion": "happy, friendly",
       "action": "waving hello to owl",
       "setting": "magical forest clearing with ancient tree, small woodland creatures watching",
@@ -56,7 +63,9 @@
     },
     {
       "page": 6,
-      "scene": "Child walking through forest with owl flying alongside",
+      "scene": "Outline walking through forest with owl flying alongside",
+      "props": ["wise_owl"],
+      "environment": "magical_forest",
       "emotion": "adventurous, confident",
       "action": "walking on glowing forest path",
       "setting": "winding path through magical forest with fireflies",
@@ -66,7 +75,9 @@
     },
     {
       "page": 7,
-      "scene": "Child discovering baby dragon stuck in thornbush",
+      "scene": "Outline discovering baby dragon stuck in thornbush",
+      "props": ["baby_dragon", "thornbush"],
+      "environment": "magical_forest",
       "emotion": "concerned, caring",
       "action": "kneeling beside tangled baby dragon",
       "setting": "forest clearing with thornbush, cute baby dragon with big eyes",
@@ -76,7 +87,9 @@
     },
     {
       "page": 8,
-      "scene": "Child carefully helping free the baby dragon",
+      "scene": "Outline carefully helping free the baby dragon",
+      "props": ["baby_dragon", "thornbush"],
+      "environment": "magical_forest",
       "emotion": "gentle, determined",
       "action": "carefully removing thorns from dragon",
       "setting": "close view of gentle rescue, forest friends watching",
@@ -87,6 +100,8 @@
     {
       "page": 9,
       "scene": "Baby dragon happily nuzzling child in thanks",
+      "props": ["baby_dragon"],
+      "environment": "magical_forest",
       "emotion": "delighted, proud",
       "action": "hugging grateful baby dragon",
       "setting": "sunny forest clearing, flowers blooming around them",
@@ -96,7 +111,9 @@
     },
     {
       "page": 10,
-      "scene": "Child surrounded by grateful forest creatures celebrating",
+      "scene": "Outline surrounded by grateful forest creatures celebrating",
+      "props": ["baby_dragon"],
+      "environment": "magical_forest",
       "emotion": "joyful, celebrated",
       "action": "being celebrated by forest friends",
       "setting": "magical forest party with woodland creatures, soft glowing lights",
@@ -106,7 +123,9 @@
     },
     {
       "page": 11,
-      "scene": "Child at the tiny door saying goodbye to new friends",
+      "scene": "Outline at the tiny door saying goodbye to new friends",
+      "props": ["magical_door", "wise_owl", "baby_dragon"],
+      "environment": "magical_forest",
       "emotion": "bittersweet, grateful",
       "action": "waving goodbye at doorway",
       "setting": "tiny door in forest, sunset colors, friends gathered to say goodbye",
@@ -116,7 +135,8 @@
     },
     {
       "page": 12,
-      "scene": "Child back in garden looking at stars",
+      "scene": "Outline back in garden looking at stars",
+      "environment": "backyard_garden",
       "emotion": "peaceful, dreamy",
       "action": "sitting in garden looking up at stars",
       "setting": "backyard garden at dusk with first stars appearing",

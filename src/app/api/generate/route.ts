@@ -5,6 +5,8 @@ import {
   GLOBAL_STYLE_PROMPT,
   ImageModel,
   GenerationResult,
+  RATE_LIMIT_DELAY_MS,
+  delay,
 } from "@/lib/replicate";
 import {
   generateStoryboard,
@@ -13,6 +15,23 @@ import {
 } from "@/lib/story-template";
 import { profileToPromptSummary } from "@/lib/character-profile";
 import type { CharacterProfile, StoryboardPanel } from "@/types";
+
+/**
+ * Check if a URL is accessible (not expired)
+ */
+async function isUrlAccessible(url: string): Promise<boolean> {
+  // Local paths are always accessible
+  if (!url.startsWith("http")) {
+    return true;
+  }
+
+  try {
+    const response = await fetch(url, { method: "HEAD" });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
 export const maxDuration = 300; // 5 minutes for image generation
 
@@ -85,24 +104,39 @@ export async function POST(request: NextRequest) {
     if (storyboardPanels && Array.isArray(storyboardPanels) && storyboardPanels.length > 0) {
       console.log(`Using ${storyboardPanels.length} storyboard panels for img2img generation`);
 
-      // Create a map of page number to sketch URL
+      // Create a map of page number to sketch URL (only for accessible URLs)
       const panelMap = new Map<number, string>();
       for (const panel of storyboardPanels as StoryboardPanel[]) {
         if (panel.sketchUrl && panel.approved) {
-          panelMap.set(panel.page, panel.sketchUrl);
+          // Check if the URL is still accessible (Replicate URLs expire)
+          const isAccessible = await isUrlAccessible(panel.sketchUrl);
+          if (isAccessible) {
+            panelMap.set(panel.page, panel.sketchUrl);
+          } else {
+            console.warn(`Panel ${panel.page} URL expired or inaccessible, will generate without storyboard`);
+          }
         }
       }
+      console.log(`${panelMap.size} of ${storyboardPanels.length} panel URLs are accessible`);
 
       // Generate images using img2img approach with storyboard sketches
       generatedImages = [];
-      for (const page of storyboard.pages) {
+      for (let i = 0; i < storyboard.pages.length; i++) {
+        const page = storyboard.pages[i];
+
+        // Rate limiting: wait between requests (skip for first request)
+        if (i > 0) {
+          console.log(`Rate limiting: waiting ${RATE_LIMIT_DELAY_MS / 1000}s before next request...`);
+          await delay(RATE_LIMIT_DELAY_MS);
+        }
+
         try {
           const sketchUrl = panelMap.get(page.page);
           let imageUrl: string;
 
           if (sketchUrl) {
             // Use img2img with storyboard sketch as init image
-            console.log(`Generating page ${page.page} from storyboard sketch (img2img)...`);
+            console.log(`Generating page ${page.page} (${i + 1}/${storyboard.pages.length}) from storyboard sketch (img2img)...`);
             imageUrl = await generatePageFromStoryboard(
               page,
               sketchUrl,
@@ -113,7 +147,7 @@ export async function POST(request: NextRequest) {
             );
           } else {
             // Fallback to regular generation if no sketch available
-            console.log(`Generating page ${page.page} without storyboard (no approved sketch)...`);
+            console.log(`Generating page ${page.page} (${i + 1}/${storyboard.pages.length}) without storyboard (no approved sketch)...`);
             const { generateImage, buildPagePrompt } = await import("@/lib/replicate");
             const prompt = buildPagePrompt(page, characterSummary, promptsTemplate.stylePrompt || GLOBAL_STYLE_PROMPT);
             imageUrl = await generateImage({
