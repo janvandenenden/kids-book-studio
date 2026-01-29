@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       characterDescription,
       referenceImageUrl,
       promptsTemplate.stylePrompt || GLOBAL_STYLE_PROMPT,
-      (model as ImageModel) || "ip-adapter"
+      (model as ImageModel) || "nano-banana-pro"
     );
 
     console.log(`Page ${pageNumber} regenerated: ${imageUrl}`);

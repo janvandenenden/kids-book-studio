@@ -151,13 +151,3 @@ function generateDescription(profile: CharacterProfile): string {
 
   return lines.join(" ");
 }
-
-export async function generateStoryWithLLM(
-  characterProfile: CharacterProfile,
-  theme: string = "magical adventure",
-  pageCount: number = 12
-): Promise<unknown> {
-  // Future: Generate custom stories with LLM
-  // For MVP, we use pre-written templates
-  throw new Error("LLM story generation not implemented - use templates");
-}

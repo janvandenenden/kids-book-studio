@@ -6,16 +6,9 @@ const replicate = new Replicate({
 });
 
 // Available models for image generation
-export type ImageModel = "ip-adapter" | "nano-banana" | "nano-banana-pro";
+export type ImageModel = "nano-banana" | "nano-banana-pro";
 
 export const IMAGE_MODELS = {
-  "ip-adapter": {
-    id: "lucataco/ip_adapter-sdxl-face:226c6bf67a75a129b0f978e518fed33e1fb13956e15761c1ac53c9d2f898c9af" as const,
-    name: "IP-Adapter (Face Reference)",
-    description: "Uses face as reference, may look more photorealistic",
-    supportsNegativePrompt: true,
-    tier: "standard" as const,
-  },
   "nano-banana": {
     id: "google/nano-banana:d05a591283da31be3eea28d5634ef9e26989b351718b6489bd308426ebd0a3e8" as const,
     name: "Google Nano Banana (Budget)",
@@ -185,7 +178,7 @@ async function extractImageUrl(output: unknown): Promise<string> {
 export async function generateImage({
   prompt,
   referenceImageUrl,
-  negativePrompt = GLOBAL_NEGATIVE_PROMPT,
+  negativePrompt: _negativePrompt = GLOBAL_NEGATIVE_PROMPT,
   model = DEFAULT_MODEL,
 }: GenerateImageParams): Promise<string> {
   console.log(`Generating with ${model}:`, {
@@ -215,19 +208,6 @@ export async function generateImage({
 
     output = await replicate.run(IMAGE_MODELS[model].id, {
       input,
-    });
-  } else if (model === "ip-adapter" && referenceImageUrl) {
-    // IP-Adapter: Uses face reference for consistency
-    // Lower scale = more stylized, less photorealistic
-    output = await replicate.run(IMAGE_MODELS["ip-adapter"].id, {
-      input: {
-        image: toAccessibleUrl(referenceImageUrl),
-        prompt: prompt,
-        negative_prompt: negativePrompt,
-        scale: 0.4, // Lower scale for more illustrated look
-        num_outputs: 1,
-        num_inference_steps: 30,
-      },
     });
   } else {
     // Fallback: Nano Banana Pro without reference
@@ -316,7 +296,7 @@ export async function generateCharacterSheet(
 async function generateCharacterSheetImage({
   prompt,
   referenceImageUrl,
-  negativePrompt = GLOBAL_NEGATIVE_PROMPT,
+  negativePrompt: _negativePrompt = GLOBAL_NEGATIVE_PROMPT,
   model = DEFAULT_MODEL,
 }: GenerateImageParams): Promise<string> {
   console.log(`Generating character sheet with ${model}:`, {
@@ -342,17 +322,6 @@ async function generateCharacterSheetImage({
     }
 
     output = await replicate.run(IMAGE_MODELS[model].id, { input });
-  } else if (model === "ip-adapter" && referenceImageUrl) {
-    output = await replicate.run(IMAGE_MODELS["ip-adapter"].id, {
-      input: {
-        image: toAccessibleUrl(referenceImageUrl),
-        prompt: prompt,
-        negative_prompt: negativePrompt,
-        scale: 0.4,
-        num_outputs: 1,
-        num_inference_steps: 30,
-      },
-    });
   } else {
     output = await replicate.run(IMAGE_MODELS["nano-banana-pro"].id, {
       input: {
@@ -450,7 +419,7 @@ export async function regeneratePage(
  */
 export function buildStoryboardPanelPrompt(
   page: StoryPage,
-  characterType: "boy" | "girl" | "child" = "child",
+  _characterType: "boy" | "girl" | "child" = "child",
 ): string {
   const compositionHints: Record<string, string> = {
     wide: "wide shot showing full scene and environment",
@@ -582,7 +551,7 @@ export async function generateImg2Img({
   initImageUrl,
   referenceImageUrl,
   strength = 0.75,
-  negativePrompt = GLOBAL_NEGATIVE_PROMPT,
+  negativePrompt: _negativePrompt = GLOBAL_NEGATIVE_PROMPT,
   model = DEFAULT_MODEL,
 }: Img2ImgParams): Promise<string> {
   console.log(
@@ -624,23 +593,6 @@ export async function generateImg2Img({
     });
 
     output = await replicate.run(IMAGE_MODELS[model].id, { input });
-  } else if (model === "ip-adapter") {
-    // IP-Adapter with init image support
-    // Convert local paths to full URLs
-    const refUrl = referenceImageUrl
-      ? toAccessibleUrl(referenceImageUrl)
-      : toAccessibleUrl(initImageUrl);
-
-    output = await replicate.run(IMAGE_MODELS["ip-adapter"].id, {
-      input: {
-        image: refUrl,
-        prompt: prompt,
-        negative_prompt: negativePrompt,
-        scale: 0.4,
-        num_outputs: 1,
-        num_inference_steps: 30,
-      },
-    });
   } else {
     // Fallback
     output = await replicate.run(IMAGE_MODELS["nano-banana-pro"].id, {

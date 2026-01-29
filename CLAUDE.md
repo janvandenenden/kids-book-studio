@@ -3,20 +3,23 @@
 Personalized children's book generator with **strict character consistency**. Parents upload child's photo → AI extracts structured character profile → generates illustrated story with consistent character across all pages → downloadable PDF.
 
 ## Key Invariants
+
 - Same reference image (original photo) for ALL page generations
 - Same character description (immutable once approved)
 - Same global style prompt for all illustrations
 - Fixed page count and layouts per story template
 
 ## Tech Stack
+
 - **Framework**: Next.js 16 (App Router)
 - **UI**: shadcn/ui + Tailwind CSS v4
-- **Image Generation**: Replicate (IP-Adapter + SDXL) - face consistency via ip_adapter_image
+- **Image Generation**: Replicate (Google Nano Banana / Nano Banana Pro)
 - **Character Analysis**: OpenAI API (GPT-4o vision for profile extraction)
 - **PDF**: @react-pdf/renderer
 - **Storage**: Local filesystem (public/uploads) for MVP
 
 ## Project Structure
+
 ```
 src/
 ├── app/
@@ -36,13 +39,11 @@ src/
 │       └── pdf/route.ts            # PDF generation
 ├── components/
 │   ├── BookForm.tsx                # Multi-step wizard (upload → description → character)
-│   ├── StoryboardPanel.tsx         # Individual storyboard panel card (admin)
-│   ├── StoryboardCreator.tsx       # Storyboard grid with approval (admin)
 │   ├── BookPreview.tsx             # Preview with per-page regeneration
 │   └── PageSpread.tsx              # Single page layout renderer
 ├── lib/
-│   ├── replicate.ts                # IP-Adapter SDXL image generation
-│   ├── llm.ts                      # Claude API for character analysis
+│   ├── replicate.ts                # Nano Banana image generation
+│   ├── llm.ts                      # OpenAI API for character analysis
 │   ├── pdf-generator.tsx           # PDF with multiple layout support
 │   ├── story-template.ts           # Template loading + placeholder replacement
 │   └── character-profile.ts        # CharacterProfile schema + validation
@@ -55,12 +56,15 @@ src/
 ```
 
 ## Commands
+
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run lint` - Run ESLint
 
 ## Environment Variables
+
 Required in `.env.local`:
+
 ```
 REPLICATE_API_TOKEN=your_replicate_token
 OPENAI_API_KEY=your_openai_api_key
@@ -71,17 +75,20 @@ ADMIN_PASSWORD=your_admin_password  # Optional: protects /admin, leave empty for
 ## Key Flows
 
 ### 1. Character Grounding
+
 1. User enters name + uploads photo
 2. POST /api/upload → saves to public/uploads/{uuid}.{ext}
 3. POST /api/analyze → Claude vision extracts CharacterProfile
 4. User reviews/edits description
 
 ### 2. Character Approval
+
 1. POST /api/character-sheet → generates character illustration with IP-Adapter
 2. User approves or regenerates character
 3. Character description becomes immutable
 
 ### 3. Book Generation
+
 1. POST /api/generate → generates all page illustrations
    - Uses approved storyboard sketches as init_image (img2img)
    - strength: 0.75 (preserves composition while adding color)
@@ -91,30 +98,35 @@ ADMIN_PASSWORD=your_admin_password  # Optional: protects /admin, leave empty for
 3. POST /api/generate/page → regenerate any page if needed
 
 ### 4. PDF Download
+
 1. POST /api/pdf → assembles PDF with @react-pdf/renderer
 2. Supports layouts: left_text, right_text, bottom_text, full_bleed
 
 ## Story Template Format
 
 ### story.json (Enhanced)
+
 ```json
 {
   "id": "adventure-story",
   "title": "{{name}}'s Big Adventure",
-  "pages": [{
-    "page": 1,
-    "scene": "Child in backyard discovering tiny door",
-    "emotion": "curious, excited",
-    "action": "discovering the door",
-    "setting": "sunny backyard garden",
-    "composition_hint": "wide",
-    "text": "Once upon a time...",
-    "layout": "bottom_text"
-  }]
+  "pages": [
+    {
+      "page": 1,
+      "scene": "Child in backyard discovering tiny door",
+      "emotion": "curious, excited",
+      "action": "discovering the door",
+      "setting": "sunny backyard garden",
+      "composition_hint": "wide",
+      "text": "Once upon a time...",
+      "layout": "bottom_text"
+    }
+  ]
 }
 ```
 
 ### prompts.json
+
 ```json
 {
   "stylePrompt": "Soft children's book illustration, pastel colors, gentle watercolor...",
@@ -123,18 +135,21 @@ ADMIN_PASSWORD=your_admin_password  # Optional: protects /admin, leave empty for
 }
 ```
 
-## Image Generation (IP-Adapter)
+## Image Generation (Nano Banana)
 
-### Model
-`tencentarc/ip-adapter-face_sdxl` on Replicate
+### Models
+
+- `nano-banana`: Budget option, good quality ($0.039/image)
+- `nano-banana-pro`: Best quality with higher resolution
 
 ### Locked Parameters (ALL pages)
-- `ip_adapter_scale`: 0.6-0.7
-- Resolution: 1024×768 (3:2)
-- Same negative prompt
-- Same reference image
+
+- Aspect ratio: 3:2 (landscape for pages), 2:3 (portrait for character sheet)
+- Resolution: 2K (pro model)
+- Same reference image for face consistency
 
 ### Prompt Structure
+
 ```
 [Character profile summary]
 In this scene: [scene + action]
@@ -145,21 +160,26 @@ Composition: [composition_hint], leave space for text on [layout position]
 ```
 
 ## CharacterProfile Schema
+
 ```typescript
 interface CharacterProfile {
   character_name: string;
   approx_age: "toddler" | "young_child" | "older_child";
   gender_presentation: "boy" | "girl" | "neutral";
-  hair: { color, length, texture, style };
-  face: { shape, expression_default };
-  eyes: { color, shape };
+  hair: { color; length; texture; style };
+  face: { shape; expression_default };
+  eyes: { color; shape };
   skin_tone: string;
+  clothing: string;                    // Full outfit description
   distinctive_features: string[];
-  do_not_change: string[];  // identity anchors
+  color_palette: string[];             // Dominant colors
+  personality_traits: string[];        // Character traits
+  do_not_change: string[];             // Identity anchors
 }
 ```
 
 ## PDF Layouts
+
 - `bottom_text` - Full illustration top, text below
 - `left_text` - Text left (40%), illustration right (60%)
 - `right_text` - Illustration left (60%), text right (40%)
@@ -168,9 +188,11 @@ interface CharacterProfile {
 ## Storyboard Feature
 
 ### Purpose
+
 Create rough B&W composition sketches before generating full-color illustrations. Allows cheaper iteration and composition approval.
 
 ### Admin Flow (Storyboard Creation)
+
 ```
 /admin
     → Select character type (boy/girl/child) and model
@@ -181,6 +203,7 @@ Create rough B&W composition sketches before generating full-color illustrations
 ```
 
 ### User Flow (Uses Pre-made Storyboard)
+
 ```
 Home (/) → Upload → Analyze → Character Approval
     ↓
@@ -191,12 +214,14 @@ Home (/) → Upload → Analyze → Character Approval
 ```
 
 ### Panel Characteristics
+
 - Black & white only (grayscale pencil sketch)
 - Loose sketch, soft shapes, simplified forms, low detail
 - Generic character outline (boy/girl/child)
 - No reference image needed - just composition sketches
 
 ### Storyboard Prompt Structure
+
 ```
 Create an image for a minimal video storyboard-style panel for the following scene:
 [scene description]. Outline of a young [boy/girl/child].
@@ -204,7 +229,9 @@ Style: loose sketch, soft shapes, simplified forms, low detail, black and white
 ```
 
 ### img2img Generation
+
 When storyboard panels are approved, final pages use img2img:
+
 ```typescript
 {
   initImageUrl: storyboardPanel.sketchUrl,  // B&W sketch
@@ -214,5 +241,6 @@ When storyboard panels are approved, final pages use img2img:
 ```
 
 ### Admin Authentication
+
 Set `ADMIN_PASSWORD` in `.env.local` to enable password protection for /admin.
 If not set, admin access is open (dev mode).

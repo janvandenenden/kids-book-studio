@@ -494,7 +494,6 @@ export default function AdminPage() {
                 >
                   <option value="nano-banana">Nano Banana (Budget)</option>
                   <option value="nano-banana-pro">Nano Banana Pro (Best)</option>
-                  <option value="ip-adapter">IP-Adapter</option>
                 </select>
               </div>
 
