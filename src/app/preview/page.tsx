@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { BookPreview } from "@/components/BookPreview";
 import { Button } from "@/components/ui/button";
-import type { Storyboard } from "@/types";
+import type { Storyboard, StoryboardPanel } from "@/types";
 import type { ImageModel } from "@/lib/replicate";
 
 type GenerationStatus = "idle" | "generating" | "complete" | "error";
@@ -18,9 +18,15 @@ interface BookData {
   pageLimit?: number; // Dev mode: limit number of pages to generate
 }
 
+interface StoryboardData {
+  panels: StoryboardPanel[];
+  storyboard: Storyboard;
+}
+
 export default function PreviewPage() {
   const router = useRouter();
   const [bookData, setBookData] = useState<BookData | null>(null);
+  const [storyboardData, setStoryboardData] = useState<StoryboardData | null>(null);
   const [story, setStory] = useState<Storyboard | null>(null);
   const [status, setStatus] = useState<GenerationStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -44,28 +50,73 @@ export default function PreviewPage() {
         throw new Error("Incomplete book data - character illustration required");
       }
       setBookData(data);
-      generateBook(data);
+
+      // Load pre-made storyboard from server (admin-created)
+      loadStoryboardAndGenerate(data);
     } catch {
       console.error("Invalid book data");
       router.push("/");
     }
   }, [router]);
 
-  const generateBook = async (data: BookData) => {
+  const loadStoryboardAndGenerate = async (data: BookData) => {
+    try {
+      // Fetch the pre-made storyboard from the server
+      const response = await fetch("/api/admin/storyboard?storyId=adventure-story");
+
+      if (response.ok) {
+        const storyboardResponse = await response.json();
+
+        if (storyboardResponse.storyboard && storyboardResponse.storyboard.panels) {
+          // Filter to only approved panels
+          const approvedPanels = storyboardResponse.storyboard.panels.filter(
+            (p: StoryboardPanel) => p.approved
+          );
+
+          if (approvedPanels.length > 0) {
+            console.log(`Using ${approvedPanels.length} approved storyboard panels for img2img`);
+            setStoryboardData({
+              panels: approvedPanels,
+              storyboard: storyboardResponse.story,
+            });
+            generateBook(data, { panels: approvedPanels, storyboard: storyboardResponse.story });
+            return;
+          }
+        }
+      }
+
+      // No storyboard available, generate without it
+      console.log("No approved storyboard found, generating without composition guidance");
+      generateBook(data, null);
+    } catch (err) {
+      console.error("Failed to load storyboard:", err);
+      // Continue without storyboard
+      generateBook(data, null);
+    }
+  };
+
+  const generateBook = async (data: BookData, storyboard: StoryboardData | null = null) => {
     setStatus("generating");
     setError(null);
 
     try {
+      const requestBody: Record<string, unknown> = {
+        childName: data.childName,
+        characterDescription: data.characterDescription,
+        characterSheetUrl: data.characterSheetUrl, // Use illustrated character as reference
+        model: data.model || "nano-banana-pro",
+        pageLimit: data.pageLimit, // Dev mode: limit pages
+      };
+
+      // If we have storyboard data, pass it for img2img generation
+      if (storyboard) {
+        requestBody.storyboardPanels = storyboard.panels;
+      }
+
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          childName: data.childName,
-          characterDescription: data.characterDescription,
-          characterSheetUrl: data.characterSheetUrl, // Use illustrated character as reference
-          model: data.model || "nano-banana-pro",
-          pageLimit: data.pageLimit, // Dev mode: limit pages
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -164,12 +215,13 @@ export default function PreviewPage() {
 
   const handleStartOver = () => {
     sessionStorage.removeItem("bookData");
+    sessionStorage.removeItem("storyboardData");
     router.push("/");
   };
 
   const handleRetry = () => {
     if (bookData) {
-      generateBook(bookData);
+      generateBook(bookData, storyboardData);
     }
   };
 

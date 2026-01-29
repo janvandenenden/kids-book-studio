@@ -28,9 +28,10 @@ Personalized children's books (like Wonderbly) are expensive ($30-50) and take w
 1. **Upload**: Parent enters child's name + uploads reference photo
 2. **Analyze**: AI extracts structured character profile from photo
 3. **Approve**: User reviews/edits character description
-4. **Generate**: AI creates illustrations with IP-Adapter face consistency
-5. **Preview**: View complete book with per-page regeneration option
-6. **Download**: Get print-ready PDF
+4. **Storyboard**: Generate B&W sketch panels for composition approval
+5. **Generate**: AI creates colored illustrations using approved sketches as guides
+6. **Preview**: View complete book with per-page regeneration option
+7. **Download**: Get print-ready PDF
 
 ### MVP Constraints
 - 1 story template only ("{{name}}'s Big Adventure")
@@ -183,8 +184,9 @@ interface Storyboard {
 | `/api/upload` | POST | Upload reference image |
 | `/api/analyze` | POST | Extract character profile from photo |
 | `/api/character-sheet` | POST | Generate character reference illustration |
-| `/api/storyboard` | POST | Generate story with LLM (future) |
-| `/api/generate` | POST | Generate all page illustrations |
+| `/api/storyboard-panels` | POST | Generate all B&W storyboard panels |
+| `/api/storyboard-panels/regenerate` | POST | Regenerate single storyboard panel |
+| `/api/generate` | POST | Generate all page illustrations (uses storyboard as guide) |
 | `/api/generate/page` | POST | Regenerate single page |
 | `/api/pdf` | POST | Assemble final PDF |
 
@@ -236,6 +238,53 @@ Leave clear empty space for text on [layout position].
 - User completion rate (start → download): > 60%
 - Image generation success rate: > 95%
 - **Character consistency score**: Same character recognizable across all pages
+
+---
+
+---
+
+## Storyboard Feature
+
+### Purpose
+Create rough B&W composition sketches before generating full-color illustrations. This allows users to approve panel layouts and compositions at a lower cost before committing to final colored pages.
+
+### Panel Requirements
+- Black & white pencil sketch style
+- Loose lines, simplified shapes
+- Character outline using reference image
+- Empty space reserved for text placement
+- No text or borders on images
+
+### Storyboard Panel Schema
+```typescript
+interface StoryboardPanel {
+  page: number;
+  scene: string;
+  textPlacement: "left" | "right" | "bottom" | "top";
+  sketchUrl?: string;
+  approved: boolean;
+}
+```
+
+### Storyboard Prompts
+**Style Prompt:**
+```
+Rough pencil sketch, loose lines, simplified shapes,
+BLACK AND WHITE ONLY, no color, children's book storyboard style,
+simple character outline, minimal background detail
+```
+
+**Negative Prompt:**
+```
+color, vibrant, detailed, finished, polished,
+text, words, letters, border, frame, complex shading
+```
+
+### img2img Generation
+Approved B&W sketches are used as init_image for final colored page generation:
+- `strength`: 0.75 (preserves composition while adding color/detail)
+- `ip_adapter_image`: Character reference for face consistency
+- Benefits: Composition matches approved sketch, character placement stays consistent
 
 ---
 

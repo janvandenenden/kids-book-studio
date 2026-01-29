@@ -1,0 +1,91 @@
+{
+  "storyId": "adventure-story",
+  "createdAt": "2026-01-28T12:58:46.690Z",
+  "updatedAt": "2026-01-29T10:23:08.390Z",
+  "panels": [
+    {
+      "page": 1,
+      "scene": "Child standing in sunny backyard garden, noticing something unusual",
+      "textPlacement": "bottom",
+      "sketchUrl": "https://replicate.delivery/xezq/QZjFV3lsiBKnL1BfvbjFfnOpro1bxBTuVkvLqoyEavBzbOCWA/tmp1k4kjbwe.png",
+      "approved": true
+    },
+    {
+      "page": 2,
+      "scene": "Child discovering a tiny magical door hidden behind garden shed",
+      "textPlacement": "right",
+      "sketchUrl": "/storyboard/panel-2.png",
+      "approved": true
+    },
+    {
+      "page": 3,
+      "scene": "Child reaching toward the tiny door handle",
+      "textPlacement": "bottom",
+      "sketchUrl": "/storyboard/panel-3.png",
+      "approved": true
+    },
+    {
+      "page": 4,
+      "scene": "Child stepping into magical forest with glowing flowers",
+      "textPlacement": "bottom",
+      "sketchUrl": "/storyboard/panel-4.png",
+      "approved": true
+    },
+    {
+      "page": 5,
+      "scene": "Child meeting a wise friendly owl on a branch",
+      "textPlacement": "left",
+      "sketchUrl": "/storyboard/panel-5.png",
+      "approved": true
+    },
+    {
+      "page": 6,
+      "scene": "Child walking through forest with owl flying alongside",
+      "textPlacement": "bottom",
+      "sketchUrl": "https://replicate.delivery/xezq/6F846zmstJJEDFwLNWkefSQ0Nu2WUS9Etmz2ghJsv0LxOACWA/tmpfr5k722d.png",
+      "approved": false
+    },
+    {
+      "page": 7,
+      "scene": "Child discovering baby dragon stuck in thornbush",
+      "textPlacement": "right",
+      "sketchUrl": "/storyboard/panel-7.png",
+      "approved": false
+    },
+    {
+      "page": 8,
+      "scene": "Child carefully helping free the baby dragon",
+      "textPlacement": "bottom",
+      "sketchUrl": "/storyboard/panel-8.png",
+      "approved": false
+    },
+    {
+      "page": 9,
+      "scene": "Baby dragon happily nuzzling child in thanks",
+      "textPlacement": "left",
+      "sketchUrl": "/storyboard/panel-9.png",
+      "approved": true
+    },
+    {
+      "page": 10,
+      "scene": "Child surrounded by grateful forest creatures celebrating",
+      "textPlacement": "bottom",
+      "sketchUrl": "/storyboard/panel-10.png",
+      "approved": true
+    },
+    {
+      "page": 11,
+      "scene": "Child at the tiny door saying goodbye to new friends",
+      "textPlacement": "right",
+      "sketchUrl": "/storyboard/panel-11.png",
+      "approved": true
+    },
+    {
+      "page": 12,
+      "scene": "Child back in garden looking at stars",
+      "textPlacement": "bottom",
+      "sketchUrl": "/storyboard/panel-12.png",
+      "approved": true
+    }
+  ]
+}

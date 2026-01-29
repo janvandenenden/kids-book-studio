@@ -37,11 +37,13 @@ Return ONLY a valid JSON object (no markdown, no code blocks) with these exact f
   },
   "skin_tone": "descriptive term like 'fair', 'light', 'medium', 'tan', 'brown', 'dark'",
   "distinctive_features": ["array of notable features like 'freckles', 'dimples', 'glasses', 'gap in teeth'"],
-  "clothing": "what they're wearing in the photo",
+  "clothing": "FULL outfit description - top, bottom, and shoes. If any part is not visible in the photo, choose neutral child-appropriate options (e.g., 'blue jeans' for pants, 'white sneakers' for shoes). Always describe a complete outfit.",
   "color_palette": ["2-3 colors that suit this character"],
   "personality_traits": ["inferred traits like 'curious', 'playful', 'shy'"],
   "do_not_change": ["list of identity anchors that must stay constant - hair color, eye color, distinctive features"]
 }
+
+IMPORTANT for clothing: Always provide a COMPLETE outfit (top + bottom + shoes). If the photo only shows the upper body, invent appropriate neutral clothing for the lower body (like "blue jeans and white sneakers" or "khaki shorts and sandals").
 
 Focus only on recognizable visual traits. Ignore background details. Be specific with colors and descriptions.`;
 
@@ -133,6 +135,11 @@ function generateDescription(profile: CharacterProfile): string {
   // Distinctive features
   if (profile.distinctive_features.length > 0) {
     lines.push(`Notable features: ${profile.distinctive_features.join(", ")}.`);
+  }
+
+  // Clothing - important for consistency across pages
+  if (profile.clothing) {
+    lines.push(`Clothing: ${profile.clothing}.`);
   }
 
   // Personality (for story context)

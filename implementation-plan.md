@@ -161,6 +161,56 @@ Creates a single illustration of the character for user approval before generati
 
 ---
 
+## Phase 3.5: Storyboard Panels
+
+### 3.5.1 Storyboard Panel Generation
+**API:** `POST /api/storyboard-panels`
+
+Generates B&W composition sketches for user approval before final colored pages.
+
+**Implementation:**
+```typescript
+// src/app/api/storyboard-panels/route.ts
+- Input: { childName, characterDescription, characterSheetUrl, model, pageLimit }
+- Generate B&W sketch for each page
+- Return { panels: StoryboardPanel[], storyboard }
+```
+
+**Storyboard Style Prompt:**
+```
+Rough pencil sketch, loose lines, simplified shapes,
+BLACK AND WHITE ONLY, no color, children's book storyboard style,
+simple character outline, minimal background detail
+```
+
+**Storyboard Negative Prompt:**
+```
+color, vibrant, colorful, detailed, finished, polished,
+text, words, letters, border, frame, complex shading
+```
+
+### 3.5.2 Single Panel Regeneration
+**API:** `POST /api/storyboard-panels/regenerate`
+
+```typescript
+// src/app/api/storyboard-panels/regenerate/route.ts
+- Input: { pageNumber, pageData, characterDescription, characterSheetUrl, model }
+- Regenerate single B&W panel
+- Return { panel: StoryboardPanel }
+```
+
+### 3.5.3 Storyboard UI Components
+**Files:**
+- `src/components/StoryboardPanel.tsx` - Individual panel card
+- `src/components/StoryboardCreator.tsx` - Grid view with approval workflow
+
+### 3.5.4 Storyboard Page
+**File:** `src/app/create-storyboard/page.tsx`
+
+User reviews B&W panels, approves/regenerates each one, then continues to final generation.
+
+---
+
 ## Phase 4: Page-by-Page Illustration Generation
 
 ### 4.1 IP-Adapter Setup
@@ -195,13 +245,23 @@ Leave clear empty space for text on [layout position].
 
 ```typescript
 // src/app/api/generate/route.ts
-- Input: { childName, photoPath, characterDescription }
+- Input: { childName, photoPath, characterDescription, storyboardPanels? }
 - Load story template
-- For each page needing illustration:
-  - Build prompt using character profile + page data + style
-  - Call Replicate with IP-Adapter
+- For each page:
+  - If storyboard panel exists: use img2img with sketch as init_image
+  - Otherwise: generate from scratch with IP-Adapter
   - Store result URL
 - Return { story with imageUrls, status }
+```
+
+**img2img Parameters (when using storyboard):**
+```typescript
+{
+  prompt: finalColoredPrompt,
+  initImageUrl: storyboardPanel.sketchUrl,  // B&W sketch as base
+  strength: 0.75,  // Preserve composition while adding color
+  referenceImageUrl: characterSheetUrl,  // Face reference
+}
 ```
 
 ### 4.4 Regenerate Single Page
@@ -342,13 +402,18 @@ kids-book-studio/
 │   │   ├── page.tsx                    # Landing + BookForm
 │   │   ├── layout.tsx
 │   │   ├── globals.css
+│   │   ├── create-storyboard/
+│   │   │   └── page.tsx                # Storyboard review page
 │   │   ├── preview/
 │   │   │   └── page.tsx                # Book preview page
 │   │   └── api/
 │   │       ├── upload/route.ts         # Photo upload
 │   │       ├── analyze/route.ts        # Character profile extraction
 │   │       ├── character-sheet/route.ts # Character illustration
-│   │       ├── generate/route.ts       # Generate all pages
+│   │       ├── storyboard-panels/
+│   │       │   ├── route.ts            # Generate all B&W panels
+│   │       │   └── regenerate/route.ts # Regenerate single panel
+│   │       ├── generate/route.ts       # Generate all pages (with img2img)
 │   │       ├── generate/
 │   │       │   └── page/route.ts       # Regenerate single page
 │   │       └── pdf/route.ts            # PDF generation
@@ -357,6 +422,8 @@ kids-book-studio/
 │   │   ├── BookForm.tsx                # Multi-step wizard
 │   │   ├── BookPreview.tsx             # Preview with regeneration
 │   │   ├── PageSpread.tsx              # Single page layout
+│   │   ├── StoryboardPanel.tsx         # Individual storyboard panel card
+│   │   ├── StoryboardCreator.tsx       # Storyboard grid with approval
 │   │   └── CharacterProfileEditor.tsx  # (future) Profile editing
 │   ├── lib/
 │   │   ├── replicate.ts                # IP-Adapter image generation
@@ -410,9 +477,18 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 - [ ] POST /api/character-sheet - Generate character illustration
 - [ ] Update BookForm step 3 for character approval
 
+### Phase 3.5: Storyboard Panels
+- [x] Add StoryboardPanel type to types/index.ts
+- [x] Add storyboard generation functions to replicate.ts
+- [x] POST /api/storyboard-panels - Generate all B&W panels
+- [x] POST /api/storyboard-panels/regenerate - Regenerate single panel
+- [x] StoryboardPanel.tsx component
+- [x] StoryboardCreator.tsx component
+- [x] /create-storyboard page
+
 ### Phase 4: Image Generation
-- [ ] Update replicate.ts for IP-Adapter SDXL
-- [ ] POST /api/generate - Generate all pages
+- [x] Update replicate.ts for IP-Adapter SDXL + img2img
+- [x] POST /api/generate - Generate all pages (with storyboard support)
 - [ ] POST /api/generate/page - Regenerate single page
 
 ### Phase 5: PDF

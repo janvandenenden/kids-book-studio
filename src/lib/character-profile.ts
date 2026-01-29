@@ -71,7 +71,7 @@ export function profileToDescription(profile: CharacterProfile): string {
 }
 
 export function profileToPromptSummary(profile: CharacterProfile): string {
-  // Shorter version for image prompts
+  // Shorter version for image prompts - includes clothing for consistency
   const features = [
     `${profile.approx_age.replace("_", " ")} ${profile.gender_presentation}`,
     `${profile.hair.color} ${profile.hair.texture} hair`,
@@ -81,6 +81,11 @@ export function profileToPromptSummary(profile: CharacterProfile): string {
 
   if (profile.distinctive_features.length > 0) {
     features.push(profile.distinctive_features.slice(0, 2).join(", "));
+  }
+
+  // Include clothing for consistency across pages
+  if (profile.clothing) {
+    features.push(`wearing ${profile.clothing}`);
   }
 
   return features.join(", ");
