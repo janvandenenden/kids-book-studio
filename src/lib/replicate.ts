@@ -178,7 +178,6 @@ async function extractImageUrl(output: unknown): Promise<string> {
 export async function generateImage({
   prompt,
   referenceImageUrl,
-  negativePrompt: _negativePrompt = GLOBAL_NEGATIVE_PROMPT,
   model = DEFAULT_MODEL,
 }: GenerateImageParams): Promise<string> {
   console.log(`Generating with ${model}:`, {
@@ -283,9 +282,6 @@ export async function generateCharacterSheet(
   return generateCharacterSheetImage({
     prompt,
     referenceImageUrl,
-    negativePrompt:
-      GLOBAL_NEGATIVE_PROMPT +
-      ", photorealistic, photograph, profile view, looking away, cropped, partial body, close-up",
     model,
   });
 }
@@ -417,10 +413,7 @@ export async function regeneratePage(
  * Build prompt for B&W storyboard panel
  * Simple scene description with generic character outline
  */
-export function buildStoryboardPanelPrompt(
-  page: StoryPage,
-  _characterType: "boy" | "girl" | "child" = "child",
-): string {
+export function buildStoryboardPanelPrompt(page: StoryPage): string {
   const compositionHints: Record<string, string> = {
     wide: "wide shot showing full scene and environment",
     medium: "medium shot showing character and surroundings",
@@ -448,10 +441,9 @@ export function buildStoryboardPanelPrompt(
  */
 export async function generateStoryboardPanel(
   page: StoryPage,
-  characterType: "boy" | "girl" | "child" = "child",
   model: ImageModel = DEFAULT_MODEL,
 ): Promise<string> {
-  const prompt = buildStoryboardPanelPrompt(page, characterType);
+  const prompt = buildStoryboardPanelPrompt(page);
 
   console.log(
     `Generating storyboard panel ${page.page}:`,
@@ -460,8 +452,6 @@ export async function generateStoryboardPanel(
 
   return generateImage({
     prompt,
-    // No reference image for storyboard - just composition sketches
-    negativePrompt: STORYBOARD_NEGATIVE_PROMPT,
     model,
   });
 }
@@ -474,7 +464,6 @@ export async function generateStoryboardPanel(
  */
 export async function generateAllStoryboardPanels(
   pages: StoryPage[],
-  characterType: "boy" | "girl" | "child" = "child",
   model: ImageModel = DEFAULT_MODEL,
   onProgress?: (current: number, total: number, panel: StoryboardPanel) => void,
 ): Promise<StoryboardPanel[]> {
@@ -504,11 +493,7 @@ export async function generateAllStoryboardPanels(
         `Generating storyboard panel ${page.page} (${i + 1}/${pages.length})...`,
       );
 
-      const sketchUrl = await generateStoryboardPanel(
-        page,
-        characterType,
-        model,
-      );
+      const sketchUrl = await generateStoryboardPanel(page, model);
 
       const panel: StoryboardPanel = {
         page: page.page,
@@ -551,7 +536,6 @@ export async function generateImg2Img({
   initImageUrl,
   referenceImageUrl,
   strength = 0.75,
-  negativePrompt: _negativePrompt = GLOBAL_NEGATIVE_PROMPT,
   model = DEFAULT_MODEL,
 }: Img2ImgParams): Promise<string> {
   console.log(
@@ -587,8 +571,12 @@ export async function generateImg2Img({
       model,
       prompt: prompt.slice(0, 100) + "...",
       image_input_count: (input.image_input as string[]).length,
-      image_input_types: (input.image_input as string[]).map(url =>
-        url.startsWith("data:") ? "base64" : url.startsWith("http") ? "url" : "unknown"
+      image_input_types: (input.image_input as string[]).map((url) =>
+        url.startsWith("data:")
+          ? "base64"
+          : url.startsWith("http")
+            ? "url"
+            : "unknown",
       ),
     });
 

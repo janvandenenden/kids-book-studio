@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  generateAllStoryboardPanels,
-  ImageModel,
-} from "@/lib/replicate";
+import { generateAllStoryboardPanels, ImageModel } from "@/lib/replicate";
 import { generateStoryboard } from "@/lib/story-template";
 
 export const maxDuration = 300; // 5 minutes for storyboard generation
@@ -35,8 +32,7 @@ export async function POST(request: NextRequest) {
     // Generate all B&W storyboard panels (no reference image needed)
     const panels = await generateAllStoryboardPanels(
       storyboard.pages,
-      characterType as "boy" | "girl" | "child",
-      (model as ImageModel) || "nano-banana-pro"
+      (model as ImageModel) || "nano-banana-pro",
     );
 
     console.log(`Generated ${panels.length} storyboard panels`);
@@ -51,8 +47,13 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Storyboard generation error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to generate storyboard panels" },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate storyboard panels",
+      },
+      { status: 500 },
     );
   }
 }
