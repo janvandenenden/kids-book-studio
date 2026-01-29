@@ -47,6 +47,15 @@ export interface Storyboard {
   pages: StoryPage[];
 }
 
+// Storyboard panel for B&W sketch composition approval
+export interface StoryboardPanel {
+  page: number;
+  scene: string;
+  textPlacement: "left" | "right" | "bottom" | "top";
+  sketchUrl?: string;
+  approved: boolean;
+}
+
 // Image prompts template
 export interface PagePrompt {
   page: number;
@@ -73,8 +82,10 @@ export interface BookSession {
   characterSheetUrl?: string;
   stylePrompt: string;
   storyboard?: Storyboard;
+  storyboardPanels?: StoryboardPanel[];
+  panelsApproved?: boolean;
   generatedImages: Record<number, string>;
-  status: "upload" | "profile" | "character" | "story" | "generating" | "complete";
+  status: "upload" | "profile" | "character" | "storyboard" | "story" | "generating" | "complete";
 }
 
 // API response types

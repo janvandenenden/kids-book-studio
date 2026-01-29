@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,15 @@ type Step = "upload" | "description" | "character";
 
 // Check if dev mode is enabled
 const isDevMode = process.env.NEXT_PUBLIC_DEV_MODE === "true";
+
+interface SavedCharacter {
+  id: string;
+  name: string;
+  description: string;
+  profile: Record<string, unknown>;
+  characterSheetUrl: string;
+  updatedAt: string;
+}
 
 export function BookForm() {
   const router = useRouter();
@@ -30,14 +39,64 @@ export function BookForm() {
   const [loadingMessage, setLoadingMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // Saved characters for quick selection
+  const [savedCharacters, setSavedCharacters] = useState<SavedCharacter[]>([]);
+  const [selectedSavedCharacter, setSelectedSavedCharacter] = useState<SavedCharacter | null>(null);
+
+  // Load saved characters on mount
+  useEffect(() => {
+    const loadCharacters = async () => {
+      try {
+        const response = await fetch("/api/characters");
+        if (response.ok) {
+          const data = await response.json();
+          setSavedCharacters(data.characters || []);
+        }
+      } catch (error) {
+        console.error("Failed to load saved characters:", error);
+      }
+    };
+    loadCharacters();
+  }, []);
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (file) {
       setPhoto(file);
       setPhotoPreview(URL.createObjectURL(file));
+      setSelectedSavedCharacter(null); // Clear saved character selection
       setError(null);
     }
   }, []);
+
+  // Use a saved character (skip to create book)
+  const handleUseSavedCharacter = (character: SavedCharacter) => {
+    setSelectedSavedCharacter(character);
+    setChildName(character.name);
+    setCharacterDescription(character.description);
+    setCharacterSheetUrl(character.characterSheetUrl);
+    setPhotoPreview(character.characterSheetUrl); // Use character sheet as preview
+    setError(null);
+  };
+
+  // Create book with saved character
+  const handleCreateBookWithSavedCharacter = () => {
+    if (!selectedSavedCharacter) return;
+
+    sessionStorage.setItem(
+      "bookData",
+      JSON.stringify({
+        childName: selectedSavedCharacter.name,
+        characterDescription: selectedSavedCharacter.description,
+        characterSheetUrl: selectedSavedCharacter.characterSheetUrl,
+        characterProfile: selectedSavedCharacter.profile,
+        photoPath: "",
+        model: selectedModel,
+        pageLimit: pageLimit, // Always use selected page limit for saved characters
+      })
+    );
+    router.push("/preview");
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -156,7 +215,7 @@ export function BookForm() {
     }
   };
 
-  // Step 3: Create book
+  // Step 3: Create book (goes directly to preview, using pre-made storyboard)
   const handleCreateBook = () => {
     sessionStorage.setItem(
       "bookData",
@@ -175,6 +234,40 @@ export function BookForm() {
   // Regenerate character sheet with same description
   const handleRegenerateCharacter = () => {
     handleGenerateCharacterSheet();
+  };
+
+  // Save character locally for dev testing (skips going to /preview)
+  const handleSaveCharacterLocally = async () => {
+    if (!characterSheetUrl || !characterDescription) return;
+
+    setIsLoading(true);
+    setLoadingMessage("Saving character...");
+    setError(null);
+
+    try {
+      const response = await fetch("/api/admin/character", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: childName.trim(),
+          description: characterDescription.trim(),
+          profile: {},
+          characterSheetUrl,
+          storyId: "adventure-story",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save character");
+      }
+
+      alert("Character saved! Go to /admin to load it for testing.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
   };
 
   const handleBack = () => {
@@ -229,76 +322,178 @@ export function BookForm() {
         {/* Step 1: Upload */}
         {step === "upload" && (
           <div className="space-y-6">
-            <div className="space-y-2">
-              <label htmlFor="childName" className="text-sm font-medium">
-                Child&apos;s Name
-              </label>
-              <Input
-                id="childName"
-                type="text"
-                placeholder="Enter your child's name"
-                value={childName}
-                onChange={(e) => setChildName(e.target.value)}
-                disabled={isLoading}
-              />
-            </div>
+            {/* Saved Characters Section */}
+            {savedCharacters.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Saved Characters</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {savedCharacters.map((character) => (
+                    <button
+                      key={character.id}
+                      onClick={() => handleUseSavedCharacter(character)}
+                      className={`p-2 rounded-lg border text-left transition-colors ${
+                        selectedSavedCharacter?.id === character.id
+                          ? "border-primary bg-primary/5 ring-2 ring-primary"
+                          : "border-input hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={character.characterSheetUrl}
+                          alt={character.name}
+                          className="w-12 h-12 rounded object-cover"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{character.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {character.description.slice(0, 30)}...
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Photo</label>
-              <div
-                {...getRootProps()}
-                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-                  isDragActive
-                    ? "border-primary bg-primary/5"
-                    : "border-muted-foreground/25 hover:border-primary/50"
-                } ${isLoading ? "pointer-events-none opacity-50" : ""}`}
-              >
-                <input {...getInputProps()} />
-                {photoPreview ? (
-                  <div className="space-y-2">
-                    <img
-                      src={photoPreview}
-                      alt="Preview"
-                      className="mx-auto max-h-40 rounded-lg object-cover"
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      Click or drag to replace
-                    </p>
+                {selectedSavedCharacter && (
+                  <div className="p-3 bg-primary/5 rounded-lg space-y-3">
+                    <div className="flex items-start gap-3">
+                      <img
+                        src={selectedSavedCharacter.characterSheetUrl}
+                        alt={selectedSavedCharacter.name}
+                        className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium">{selectedSavedCharacter.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+                          {selectedSavedCharacter.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Page limit selector */}
+                    <div className="flex items-center gap-3">
+                      <label htmlFor="pageLimit" className="text-sm font-medium whitespace-nowrap">
+                        Pages to generate:
+                      </label>
+                      <Input
+                        id="pageLimit"
+                        type="number"
+                        min={1}
+                        max={12}
+                        value={pageLimit}
+                        onChange={(e) => setPageLimit(Math.min(12, Math.max(1, parseInt(e.target.value) || 1)))}
+                        className="w-20"
+                      />
+                      <span className="text-xs text-muted-foreground">of 12</span>
+                    </div>
+
+                    <Button
+                      onClick={handleCreateBookWithSavedCharacter}
+                      className="w-full"
+                    >
+                      Create Book with {selectedSavedCharacter.name}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedSavedCharacter(null)}
+                      className="w-full"
+                    >
+                      Or create new character below
+                    </Button>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="text-4xl">📷</div>
-                    <p className="text-sm text-muted-foreground">
-                      {isDragActive
-                        ? "Drop the photo here..."
-                        : "Drag & drop a photo, or click to select"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      A clear face photo works best
-                    </p>
+                )}
+
+                {!selectedSavedCharacter && (
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">
+                        Or create new
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
-
-            {error && (
-              <p className="text-sm text-destructive text-center">{error}</p>
             )}
 
-            <Button
-              onClick={handleUploadAndAnalyze}
-              className="w-full"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <span className="flex items-center gap-2">
-                  <span className="animate-spin">⏳</span>
-                  {loadingMessage}
-                </span>
-              ) : (
-                "Continue"
-              )}
-            </Button>
+            {/* New Character Form (hidden if saved character selected) */}
+            {!selectedSavedCharacter && (
+              <>
+                <div className="space-y-2">
+                  <label htmlFor="childName" className="text-sm font-medium">
+                    Child&apos;s Name
+                  </label>
+                  <Input
+                    id="childName"
+                    type="text"
+                    placeholder="Enter your child's name"
+                    value={childName}
+                    onChange={(e) => setChildName(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Photo</label>
+                  <div
+                    {...getRootProps()}
+                    className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                      isDragActive
+                        ? "border-primary bg-primary/5"
+                        : "border-muted-foreground/25 hover:border-primary/50"
+                    } ${isLoading ? "pointer-events-none opacity-50" : ""}`}
+                  >
+                    <input {...getInputProps()} />
+                    {photoPreview ? (
+                      <div className="space-y-2">
+                        <img
+                          src={photoPreview}
+                          alt="Preview"
+                          className="mx-auto max-h-40 rounded-lg object-cover"
+                        />
+                        <p className="text-sm text-muted-foreground">
+                          Click or drag to replace
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="text-4xl">📷</div>
+                        <p className="text-sm text-muted-foreground">
+                          {isDragActive
+                            ? "Drop the photo here..."
+                            : "Drag & drop a photo, or click to select"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          A clear face photo works best
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {error && (
+                  <p className="text-sm text-destructive text-center">{error}</p>
+                )}
+
+                <Button
+                  onClick={handleUploadAndAnalyze}
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <span className="animate-spin">⏳</span>
+                      {loadingMessage}
+                    </span>
+                  ) : (
+                    "Continue"
+                  )}
+                </Button>
+              </>
+            )}
           </div>
         )}
 
@@ -467,6 +662,17 @@ export function BookForm() {
                 Create Book
               </Button>
             </div>
+
+            {/* Dev: Save character for testing */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSaveCharacterLocally}
+              disabled={isLoading}
+              className="w-full text-muted-foreground"
+            >
+              {isLoading && loadingMessage.includes("Saving") ? "Saving..." : "💾 Save character for testing"}
+            </Button>
           </div>
         )}
       </CardContent>
