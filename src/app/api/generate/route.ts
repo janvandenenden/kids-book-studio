@@ -10,11 +10,13 @@ import {
 } from "@/lib/replicate";
 import {
   generateStoryboard,
+  generateStoryboardForStory,
   getPromptsTemplate,
   mergeStoryboardWithImages,
+  loadStoryTemplateForStory,
 } from "@/lib/story-template";
 import { profileToPromptSummary } from "@/lib/character-profile";
-import type { CharacterProfile, StoryboardPanel } from "@/types";
+import type { CharacterProfile, StoryboardPanel, PromptsTemplate } from "@/types";
 
 /**
  * Check if a URL is accessible (not expired)
@@ -46,6 +48,7 @@ export async function POST(request: NextRequest) {
       model,
       pageLimit,
       storyboardPanels,
+      storyId = "adventure-story",
     } = body;
 
     if (!childName) {
@@ -70,7 +73,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate the storyboard with name placeholders filled in
-    let storyboard = generateStoryboard(childName);
+    let storyboard = storyId !== "adventure-story"
+      ? generateStoryboardForStory(storyId, childName)
+      : generateStoryboard(childName);
+
+    if (!storyboard) {
+      return NextResponse.json(
+        { error: `Story template ${storyId} not found` },
+        { status: 404 },
+      );
+    }
 
     // Dev mode: limit number of pages
     if (pageLimit && typeof pageLimit === "number" && pageLimit > 0) {
@@ -82,7 +94,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Get prompts template for style info
-    const promptsTemplate = getPromptsTemplate();
+    let promptsTemplate: PromptsTemplate;
+    if (storyId !== "adventure-story") {
+      const template = loadStoryTemplateForStory(storyId);
+      promptsTemplate = template?.prompts || getPromptsTemplate();
+    } else {
+      promptsTemplate = getPromptsTemplate();
+    }
 
     // Build character summary for prompts
     let characterSummary = characterDescription;

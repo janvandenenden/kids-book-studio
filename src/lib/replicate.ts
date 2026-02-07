@@ -1,5 +1,5 @@
 import Replicate from "replicate";
-import type { StoryPage, StoryboardPanel, PropBible } from "@/types";
+import type { StoryPage, StoryboardPanel, PropBible, Phase5PanelBrief } from "@/types";
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
@@ -835,6 +835,38 @@ export async function generateImg2Img({
   const imageUrl = await extractImageUrl(output);
   console.log("Generated img2img image:", imageUrl);
   return imageUrl;
+}
+
+/**
+ * Build storyboard panel prompt from a Phase 5 panel brief
+ * The imagePrompt is already a complete, dense prompt for Nano Banana
+ * We append the storyboard style to keep B&W sketch output
+ */
+export function buildStoryboardPanelPromptFromPhase5(
+  panelBrief: Phase5PanelBrief,
+): string {
+  return `${panelBrief.imagePrompt}. Style: ${STORYBOARD_STYLE_PROMPT}`;
+}
+
+/**
+ * Generate a B&W storyboard panel from a Phase 5 panel brief
+ */
+export async function generateStoryboardPanelFromBrief(
+  panelBrief: Phase5PanelBrief,
+  model: ImageModel = DEFAULT_MODEL,
+): Promise<string> {
+  const prompt = buildStoryboardPanelPromptFromPhase5(panelBrief);
+
+  console.log(
+    `Generating storyboard panel ${panelBrief.spreadNumber} from Phase 5 brief:`,
+    prompt.slice(0, 150) + "...",
+  );
+
+  return generateStoryboardPanelWithOutline({
+    prompt,
+    outlineImagePath: STORYBOARD_OUTLINE_PATH,
+    model,
+  });
 }
 
 // Simple prompt for combining storyboard + character

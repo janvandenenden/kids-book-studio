@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IMAGE_MODELS, ImageModel } from "@/lib/replicate";
 
-type Step = "upload" | "description" | "character";
+type Step = "upload" | "description" | "character" | "story";
 
 // Check if dev mode is enabled
 const isDevMode = process.env.NEXT_PUBLIC_DEV_MODE === "true";
@@ -39,11 +39,15 @@ export function BookForm() {
   const [loadingMessage, setLoadingMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // Story selection
+  const [availableStories, setAvailableStories] = useState<Array<{ id: string; name: string; isLegacy: boolean }>>([]);
+  const [selectedStoryId, setSelectedStoryId] = useState<string>("adventure-story");
+
   // Saved characters for quick selection
   const [savedCharacters, setSavedCharacters] = useState<SavedCharacter[]>([]);
   const [selectedSavedCharacter, setSelectedSavedCharacter] = useState<SavedCharacter | null>(null);
 
-  // Load saved characters on mount
+  // Load saved characters and available stories on mount
   useEffect(() => {
     const loadCharacters = async () => {
       try {
@@ -56,7 +60,19 @@ export function BookForm() {
         console.error("Failed to load saved characters:", error);
       }
     };
+    const loadStories = async () => {
+      try {
+        const response = await fetch("/api/stories");
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableStories(data.stories || []);
+        }
+      } catch (error) {
+        console.error("Failed to load stories:", error);
+      }
+    };
     loadCharacters();
+    loadStories();
   }, []);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -83,6 +99,15 @@ export function BookForm() {
   const handleCreateBookWithSavedCharacter = () => {
     if (!selectedSavedCharacter) return;
 
+    // If multiple stories available, go to story selection
+    if (availableStories.length > 1) {
+      setChildName(selectedSavedCharacter.name);
+      setCharacterDescription(selectedSavedCharacter.description);
+      setCharacterSheetUrl(selectedSavedCharacter.characterSheetUrl);
+      setStep("story");
+      return;
+    }
+
     sessionStorage.setItem(
       "bookData",
       JSON.stringify({
@@ -92,7 +117,8 @@ export function BookForm() {
         characterProfile: selectedSavedCharacter.profile,
         photoPath: "",
         model: selectedModel,
-        pageLimit: pageLimit, // Always use selected page limit for saved characters
+        pageLimit: pageLimit,
+        storyId: selectedStoryId,
       })
     );
     router.push("/preview");
@@ -215,8 +241,13 @@ export function BookForm() {
     }
   };
 
-  // Step 3: Create book (goes directly to preview, using pre-made storyboard)
+  // Step 3: Create book (goes to story selection if multiple stories, else directly to preview)
   const handleCreateBook = () => {
+    if (availableStories.length > 1) {
+      setStep("story");
+      return;
+    }
+
     sessionStorage.setItem(
       "bookData",
       JSON.stringify({
@@ -226,6 +257,24 @@ export function BookForm() {
         photoPath,
         model: selectedModel,
         pageLimit: isDevMode ? pageLimit : undefined,
+        storyId: selectedStoryId,
+      })
+    );
+    router.push("/preview");
+  };
+
+  // Step 4: Start book with selected story
+  const handleStartWithStory = () => {
+    sessionStorage.setItem(
+      "bookData",
+      JSON.stringify({
+        childName: childName.trim(),
+        characterDescription: characterDescription.trim(),
+        characterSheetUrl,
+        photoPath,
+        model: selectedModel,
+        pageLimit: isDevMode ? pageLimit : undefined,
+        storyId: selectedStoryId,
       })
     );
     router.push("/preview");
@@ -276,12 +325,16 @@ export function BookForm() {
       setStep("upload");
     } else if (step === "character") {
       setStep("description");
+    } else if (step === "story") {
+      setStep("character");
     }
   };
 
   const getStepIndicator = () => {
-    const steps = ["Photo", "Description", "Character"];
-    const currentIndex = step === "upload" ? 0 : step === "description" ? 1 : 2;
+    const steps = availableStories.length > 1
+      ? ["Photo", "Description", "Character", "Story"]
+      : ["Photo", "Description", "Character"];
+    const currentIndex = step === "upload" ? 0 : step === "description" ? 1 : step === "character" ? 2 : 3;
 
     return (
       <div className="flex justify-center gap-2 mb-4">
@@ -671,8 +724,48 @@ export function BookForm() {
               disabled={isLoading}
               className="w-full text-muted-foreground"
             >
-              {isLoading && loadingMessage.includes("Saving") ? "Saving..." : "💾 Save character for testing"}
+              {isLoading && loadingMessage.includes("Saving") ? "Saving..." : "Save character for testing"}
             </Button>
+          </div>
+        )}
+
+        {/* Step 4: Story Selection */}
+        {step === "story" && (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Choose a Story</label>
+              <p className="text-xs text-muted-foreground">
+                Select which story {childName} will star in.
+              </p>
+            </div>
+
+            <div className="grid gap-3">
+              {availableStories.map((story) => (
+                <button
+                  key={story.id}
+                  onClick={() => setSelectedStoryId(story.id)}
+                  className={`p-4 rounded-lg border text-left transition-colors ${
+                    selectedStoryId === story.id
+                      ? "border-primary bg-primary/5 ring-2 ring-primary"
+                      : "border-input hover:border-primary/50"
+                  }`}
+                >
+                  <p className="font-medium">{story.name}</p>
+                  {story.isLegacy && (
+                    <span className="text-xs text-muted-foreground">Original story</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={handleBack} className="flex-1">
+                Back
+              </Button>
+              <Button onClick={handleStartWithStory} className="flex-1">
+                Create Book
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

@@ -1,7 +1,11 @@
 import storyData from "@/templates/adventure-story/story.json";
 import promptsData from "@/templates/adventure-story/prompts.json";
 import propBibleData from "@/templates/adventure-story/prop-bible.json";
-import type { Storyboard, StoryPage, PromptsTemplate, StoryboardPanel, PropBible } from "@/types";
+import type {
+  Storyboard, StoryPage, PromptsTemplate, StoryboardPanel, PropBible,
+  StoryProject, StoryIndexEntry, PhaseState,
+  Phase0Concept, Phase1Storyboard, Phase2Manuscript, Phase4PropsBible, Phase5PanelBriefs,
+} from "@/types";
 import fs from "fs";
 import path from "path";
 
@@ -524,4 +528,375 @@ export function deleteStoredCharacter(characterId: string): boolean {
     console.error(`Failed to delete character ${characterId}:`, error);
     return false;
   }
+}
+
+// ============================================
+// Story Generation Pipeline — Storage & CRUD
+// ============================================
+
+function getTemplatesDir(): string {
+  return path.join(process.cwd(), "src", "templates");
+}
+
+function getStoriesIndexPath(): string {
+  return path.join(getTemplatesDir(), "stories-index.json");
+}
+
+function getStoryDir(storyId: string): string {
+  return path.join(getTemplatesDir(), storyId);
+}
+
+function getProjectPath(storyId: string): string {
+  return path.join(getStoryDir(storyId), "project.json");
+}
+
+function getPhaseOutputPath(storyId: string, phaseNum: number): string {
+  return path.join(getStoryDir(storyId), `phase${phaseNum}.json`);
+}
+
+// --- Stories Index ---
+
+export interface StoriesIndex {
+  stories: StoryIndexEntry[];
+}
+
+export function loadStoriesIndex(): StoriesIndex {
+  try {
+    const indexPath = getStoriesIndexPath();
+    if (!fs.existsSync(indexPath)) {
+      // Build index from existing templates
+      const defaultIndex: StoriesIndex = {
+        stories: [
+          {
+            id: "adventure-story",
+            name: "Big Adventure",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            currentPhase: 5,
+            templateReady: true,
+            isLegacy: true,
+          },
+        ],
+      };
+      return defaultIndex;
+    }
+    const data = fs.readFileSync(indexPath, "utf-8");
+    return JSON.parse(data) as StoriesIndex;
+  } catch (error) {
+    console.error("Failed to load stories index:", error);
+    return { stories: [] };
+  }
+}
+
+export function saveStoriesIndex(index: StoriesIndex): void {
+  const indexPath = getStoriesIndexPath();
+  fs.writeFileSync(indexPath, JSON.stringify(index, null, 2));
+}
+
+export function addStoryToIndex(entry: StoryIndexEntry): void {
+  const index = loadStoriesIndex();
+  const existing = index.stories.findIndex((s) => s.id === entry.id);
+  if (existing >= 0) {
+    index.stories[existing] = entry;
+  } else {
+    index.stories.push(entry);
+  }
+  saveStoriesIndex(index);
+}
+
+export function removeStoryFromIndex(storyId: string): void {
+  const index = loadStoriesIndex();
+  index.stories = index.stories.filter((s) => s.id !== storyId);
+  saveStoriesIndex(index);
+}
+
+// --- Story Project CRUD ---
+
+function createEmptyPhaseState<T>(): PhaseState<T> {
+  return { status: "pending", output: null };
+}
+
+export function createStoryProject(name: string): StoryProject {
+  const id = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  const storyDir = getStoryDir(id);
+  if (!fs.existsSync(storyDir)) {
+    fs.mkdirSync(storyDir, { recursive: true });
+  }
+
+  const now = new Date().toISOString();
+  const project: StoryProject = {
+    id,
+    name,
+    createdAt: now,
+    updatedAt: now,
+    phase0: createEmptyPhaseState<Phase0Concept>(),
+    phase1: createEmptyPhaseState<Phase1Storyboard>(),
+    phase2: createEmptyPhaseState<Phase2Manuscript>(),
+    phase4: createEmptyPhaseState<Phase4PropsBible>(),
+    phase5: createEmptyPhaseState<Phase5PanelBriefs>(),
+    currentPhase: 0,
+    templateReady: false,
+  };
+
+  saveStoryProject(project);
+
+  addStoryToIndex({
+    id,
+    name,
+    createdAt: now,
+    updatedAt: now,
+    currentPhase: 0,
+    templateReady: false,
+    isLegacy: false,
+  });
+
+  return project;
+}
+
+export function loadStoryProject(storyId: string): StoryProject | null {
+  try {
+    const projectPath = getProjectPath(storyId);
+    if (!fs.existsSync(projectPath)) {
+      return null;
+    }
+    const data = fs.readFileSync(projectPath, "utf-8");
+    return JSON.parse(data) as StoryProject;
+  } catch (error) {
+    console.error(`Failed to load story project ${storyId}:`, error);
+    return null;
+  }
+}
+
+export function saveStoryProject(project: StoryProject): void {
+  const projectPath = getProjectPath(project.id);
+  project.updatedAt = new Date().toISOString();
+  fs.writeFileSync(projectPath, JSON.stringify(project, null, 2));
+
+  // Update index entry
+  const index = loadStoriesIndex();
+  const entry = index.stories.find((s) => s.id === project.id);
+  if (entry) {
+    entry.updatedAt = project.updatedAt;
+    entry.currentPhase = project.currentPhase;
+    entry.templateReady = project.templateReady;
+    saveStoriesIndex(index);
+  }
+}
+
+export function deleteStoryProject(storyId: string): void {
+  const storyDir = getStoryDir(storyId);
+  if (fs.existsSync(storyDir)) {
+    fs.rmSync(storyDir, { recursive: true, force: true });
+  }
+  removeStoryFromIndex(storyId);
+}
+
+// --- Phase Output CRUD ---
+
+export function savePhaseOutput(storyId: string, phaseNum: number, output: unknown): void {
+  const outputPath = getPhaseOutputPath(storyId, phaseNum);
+  fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));
+}
+
+export function loadPhaseOutput<T>(storyId: string, phaseNum: number): T | null {
+  try {
+    const outputPath = getPhaseOutputPath(storyId, phaseNum);
+    if (!fs.existsSync(outputPath)) {
+      return null;
+    }
+    const data = fs.readFileSync(outputPath, "utf-8");
+    return JSON.parse(data) as T;
+  } catch (error) {
+    console.error(`Failed to load phase ${phaseNum} for ${storyId}:`, error);
+    return null;
+  }
+}
+
+// --- Conversion: Phase outputs → standard template files ---
+
+export function convertToTemplateFiles(storyId: string): void {
+  const project = loadStoryProject(storyId);
+  if (!project) throw new Error(`Story project ${storyId} not found`);
+
+  const concept = project.phase0.output;
+  const manuscript = project.phase2.output;
+  const propsBible = project.phase4.output;
+  const panelBriefs = project.phase5.output;
+
+  if (!concept || !manuscript) throw new Error("Phase 0 and Phase 2 required for conversion");
+
+  // Convert Phase 2 → story.json
+  const storyJson = convertPhase2ToStoryJson(manuscript, concept, storyId);
+  const storyJsonPath = path.join(getStoryDir(storyId), "story.json");
+  fs.writeFileSync(storyJsonPath, JSON.stringify(storyJson, null, 2));
+
+  // Convert Phase 4 → prop-bible.json
+  if (propsBible) {
+    const propBibleJson = convertPhase4ToPropBible(propsBible, storyId);
+    const propBiblePath = path.join(getStoryDir(storyId), "prop-bible.json");
+    fs.writeFileSync(propBiblePath, JSON.stringify(propBibleJson, null, 2));
+  }
+
+  // Convert Phase 5 → prompts.json
+  if (panelBriefs && propsBible) {
+    const promptsJson = convertPhase5ToPromptsJson(panelBriefs, propsBible, storyId);
+    const promptsPath = path.join(getStoryDir(storyId), "prompts.json");
+    fs.writeFileSync(promptsPath, JSON.stringify(promptsJson, null, 2));
+  }
+
+  // Mark project as template-ready
+  project.templateReady = true;
+  saveStoryProject(project);
+
+  console.log(`Converted story ${storyId} to template files`);
+}
+
+function convertPhase2ToStoryJson(
+  manuscript: Phase2Manuscript,
+  concept: Phase0Concept,
+  storyId: string,
+): Record<string, unknown> {
+  const pages = manuscript.spreads.map((spread) => {
+    // Parse illustration note for structured fields
+    const note = spread.illustrationNote || "";
+
+    // Try to extract structured fields from the illustration note
+    const sceneMatch = note.match(/scene:\s*(.+?)(?:\.|$)/i);
+    const emotionMatch = note.match(/emotion:\s*(.+?)(?:\.|$)/i);
+    const actionMatch = note.match(/action:\s*(.+?)(?:\.|$)/i);
+    const settingMatch = note.match(/setting:\s*(.+?)(?:\.|$)/i);
+    const compositionMatch = note.match(/composition:\s*(wide|medium|close)/i);
+    const layoutMatch = note.match(/layout:\s*(left_text|right_text|bottom_text|full_bleed)/i);
+
+    return {
+      page: spread.spreadNumber,
+      scene: sceneMatch?.[1]?.trim() || note.slice(0, 100),
+      emotion: emotionMatch?.[1]?.trim() || "engaged",
+      action: actionMatch?.[1]?.trim() || "in the scene",
+      setting: settingMatch?.[1]?.trim() || "story setting",
+      composition_hint: compositionMatch?.[1]?.trim() || "medium",
+      text: spread.finalText,
+      layout: layoutMatch?.[1]?.trim() || "bottom_text",
+    };
+  });
+
+  return {
+    id: storyId,
+    title: `{{name}}'s ${concept.visualHook || "Story"}`,
+    ageRange: concept.ageRange,
+    pageCount: pages.length,
+    pages,
+  };
+}
+
+function convertPhase4ToPropBible(
+  phase4: Phase4PropsBible,
+  storyId: string,
+): PropBible {
+  const props: Record<string, { description: string; appearances: number[] }> = {};
+  for (const obj of phase4.keyObjects) {
+    const key = obj.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_|_$/g, "");
+    props[key] = {
+      description: obj.description,
+      appearances: obj.appearsInSpreads,
+    };
+  }
+
+  const environments: Record<string, { description: string; appearances: number[] }> = {};
+  for (const env of phase4.environments) {
+    const key = env.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_|_$/g, "");
+    environments[key] = {
+      description: env.description,
+      appearances: env.usedInSpreads,
+    };
+  }
+
+  return {
+    storyId,
+    globalStyle: phase4.styleNotes,
+    props,
+    environments,
+  };
+}
+
+function convertPhase5ToPromptsJson(
+  panelBriefs: Phase5PanelBriefs,
+  propsBible: Phase4PropsBible,
+  storyId: string,
+): PromptsTemplate {
+  return {
+    storyId,
+    stylePrompt: propsBible.styleNotes || "Soft children's book illustration, pastel colors, gentle watercolor texture",
+    negativePrompt: "extra characters, multiple children, inconsistent face, realistic photo, harsh shadows, text, words, letters",
+    pages: panelBriefs.panels.map((panel) => ({
+      page: panel.spreadNumber,
+      prompt: panel.imagePrompt,
+    })),
+  };
+}
+
+// --- Multi-story template loading ---
+
+export function loadStoryTemplateForStory(storyId: string): { story: Record<string, unknown>; prompts: PromptsTemplate } | null {
+  try {
+    const storyDir = getStoryDir(storyId);
+    const storyPath = path.join(storyDir, "story.json");
+    const promptsPath = path.join(storyDir, "prompts.json");
+
+    if (!fs.existsSync(storyPath) || !fs.existsSync(promptsPath)) {
+      return null;
+    }
+
+    const story = JSON.parse(fs.readFileSync(storyPath, "utf-8"));
+    const prompts = JSON.parse(fs.readFileSync(promptsPath, "utf-8")) as PromptsTemplate;
+
+    return { story, prompts };
+  } catch (error) {
+    console.error(`Failed to load template for ${storyId}:`, error);
+    return null;
+  }
+}
+
+export function loadPropBibleForStory(storyId: string): PropBible | null {
+  return loadPropBibleFromFile(storyId);
+}
+
+export function generateStoryboardForStory(storyId: string, name: string): Storyboard | null {
+  if (storyId === "adventure-story") {
+    return generateStoryboard(name);
+  }
+
+  const template = loadStoryTemplateForStory(storyId);
+  if (!template) return null;
+
+  const story = template.story as { id: string; title: string; ageRange?: string; pageCount?: number; pages: StoryPage[] };
+
+  return {
+    id: story.id,
+    title: replacePlaceholders(story.title, name),
+    ageRange: story.ageRange,
+    pageCount: story.pageCount,
+    pages: story.pages.map((page) => ({
+      ...page,
+      text: replacePlaceholders(page.text, name),
+    })),
+  };
+}
+
+/**
+ * List all stories that are template-ready (for user-facing story selection)
+ */
+export function listTemplateReadyStories(): StoryIndexEntry[] {
+  const index = loadStoriesIndex();
+  return index.stories.filter((s) => s.templateReady);
 }

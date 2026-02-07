@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   generateStoryboardPanel,
   generateStoryboardPanelWithProps,
+  generateStoryboardPanelFromBrief,
   ImageModel,
 } from "@/lib/replicate";
 import { downloadAndSaveImage } from "@/lib/server-utils";
-import { loadPropBible } from "@/lib/story-template";
-import type { StoryPage, StoryboardPanel } from "@/types";
+import { loadPropBible, loadPropBibleForStory, loadStoryProject } from "@/lib/story-template";
+import type { StoryPage, StoryboardPanel, Phase5PanelBriefs } from "@/types";
 
 export const maxDuration = 120; // 2 minutes for single panel regeneration
 
@@ -18,6 +19,7 @@ export async function POST(request: NextRequest) {
       pageData,
       model,
       usePropBible = true, // Use prop bible by default
+      storyId,
     } = body;
 
     if (!pageNumber) {
@@ -27,27 +29,72 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log(`Regenerating storyboard panel ${pageNumber}`);
+
+    let sketchUrl: string;
+
+    // Check if the story has Phase 5 panel briefs
+    if (storyId && storyId !== "adventure-story") {
+      const project = loadStoryProject(storyId);
+      if (project?.phase5?.output) {
+        const panelBriefs = project.phase5.output as Phase5PanelBriefs;
+        const brief = panelBriefs.panels.find((p) => p.spreadNumber === pageNumber);
+
+        if (brief) {
+          console.log(`  Using Phase 5 panel brief for panel ${pageNumber}`);
+          sketchUrl = await generateStoryboardPanelFromBrief(
+            brief,
+            (model as ImageModel) || "nano-banana-pro",
+          );
+
+          const localSketchUrl = await downloadAndSaveImage(
+            sketchUrl,
+            `panel-${pageNumber}.png`,
+            "storyboard",
+          );
+
+          const panel: StoryboardPanel = {
+            page: pageNumber,
+            scene: brief.composition,
+            textPlacement: "bottom",
+            sketchUrl: localSketchUrl,
+            approved: false,
+          };
+
+          return NextResponse.json({
+            success: true,
+            panel,
+            usedPhase5: true,
+          });
+        }
+      }
+    }
+
+    // Legacy path
     if (!pageData) {
       return NextResponse.json({ error: "Missing pageData" }, { status: 400 });
     }
 
-    console.log(`Regenerating storyboard panel ${pageNumber}`);
     console.log(`  Use prop bible: ${usePropBible}`);
 
-    let sketchUrl: string;
-
     if (usePropBible) {
-      // Load prop bible for consistent object/environment descriptions
-      const propBible = loadPropBible();
+      const propBible = storyId
+        ? loadPropBibleForStory(storyId)
+        : loadPropBible();
 
-      // Generate with prop bible (text-based consistency only)
-      sketchUrl = await generateStoryboardPanelWithProps(
-        pageData as StoryPage,
-        propBible,
-        (model as ImageModel) || "nano-banana-pro",
-      );
+      if (propBible) {
+        sketchUrl = await generateStoryboardPanelWithProps(
+          pageData as StoryPage,
+          propBible,
+          (model as ImageModel) || "nano-banana-pro",
+        );
+      } else {
+        sketchUrl = await generateStoryboardPanel(
+          pageData as StoryPage,
+          (model as ImageModel) || "nano-banana-pro",
+        );
+      }
     } else {
-      // Generate without prop bible (legacy behavior)
       sketchUrl = await generateStoryboardPanel(
         pageData as StoryPage,
         (model as ImageModel) || "nano-banana-pro",

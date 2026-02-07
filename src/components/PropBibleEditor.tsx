@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { PropBible, Prop, Environment } from "@/types";
+import storyData from "@/templates/adventure-story/story.json";
 
 interface PropBibleEditorProps {
   propBible: PropBible;
@@ -125,18 +126,15 @@ export function PropBibleEditor({
   };
 
   // Build complete prompt preview for a page (mirrors server-side logic)
-  const buildPromptPreview = (pageNum: number, scene: string) => {
+  const buildPromptPreview = (pageNum: number) => {
+    // Get scene from story.json
+    const storyPage = storyData.pages.find((p) => p.page === pageNum);
+    const scene = storyPage?.scene || `[Scene ${pageNum}]`;
+
     const defaultCompositionHints: Record<string, string> = {
       wide: "wide shot showing full scene and environment",
       medium: "medium shot showing character and surroundings",
       close: "close-up shot focusing on character",
-    };
-
-    const layoutHints: Record<string, string> = {
-      left_text: "main subject on the right side, empty space on left",
-      right_text: "main subject on the left side, empty space on right",
-      bottom_text: "main action in upper two-thirds, clear lower area",
-      full_bleed: "balanced full scene composition",
     };
 
     // Find props for this page
@@ -153,33 +151,39 @@ export function PropBibleEditor({
     const compositionHint =
       propBible.compositions?.[pageNum] || defaultCompositionHints["medium"];
 
-    // Build prompt parts
-    const parts: string[] = [
-      `Place the outline from the input image into this scene: ${scene}`,
-    ];
+    // Build prompt parts with line breaks for readability
+    const parts: string[] = [];
 
-    if (pageProps.length > 0) {
-      parts.push(`Key objects: ${pageProps.join("; ")}`);
-    }
+    parts.push(`Scene: ${scene}`);
+
+    parts.push(`\nComposition: ${compositionHint}`);
 
     if (pageEnv) {
-      parts.push(`Environment: ${pageEnv[1].description}`);
+      parts.push(`\nEnvironment: ${pageEnv[1].description}`);
     }
 
-    parts.push(`Composition: ${compositionHint}`);
+    if (pageProps.length > 0) {
+      parts.push(`\nKey objects:\n${pageProps.map((p) => `  • ${p}`).join("\n")}`);
+    }
 
     // Add global instructions if present
     if (propBible.globalInstructions) {
-      parts.push(propBible.globalInstructions);
+      parts.push(`\nInstructions: ${propBible.globalInstructions}`);
     }
 
     // Add style
     const stylePrompt =
       propBible.globalStyle ||
       "loose sketch, soft shapes, simplified forms, low detail, black and white only, no text, no border, minimal background";
-    parts.push(`Style: ${stylePrompt}`);
+    parts.push(`\nStyle: ${stylePrompt}`);
 
-    return parts.join(". ") + ".";
+    return parts.join("");
+  };
+
+  // Get story text for a page
+  const getStoryText = (pageNum: number): string | null => {
+    const storyPage = storyData.pages.find((p) => p.page === pageNum);
+    return storyPage?.text || null;
   };
 
   const compositionCount = propBible.compositions ? Object.keys(propBible.compositions).length : 0;
@@ -472,8 +476,7 @@ export function PropBibleEditor({
         {activeTab === "preview" && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Complete prompts for each page. Scene descriptions come from
-              story.json.
+              Complete prompts for each page with story text from story.json.
             </p>
 
             <div className="space-y-4">
@@ -491,20 +494,16 @@ export function PropBibleEditor({
                 // Check if composition is defined for this page
                 const hasComposition = !!propBible.compositions?.[pageNum];
 
-                // Placeholder scene (actual scenes come from story.json)
-                const placeholderScene = `[Scene ${pageNum} from story.json]`;
-                const fullPrompt = buildPromptPreview(
-                  pageNum,
-                  placeholderScene,
-                );
+                const fullPrompt = buildPromptPreview(pageNum);
+                const storyText = getStoryText(pageNum);
 
                 return (
                   <div
                     key={pageNum}
-                    className="p-3 border rounded-lg space-y-2"
+                    className="p-4 border rounded-lg space-y-3"
                   >
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium">Page {pageNum}</span>
+                      <span className="font-medium text-lg">Page {pageNum}</span>
                       {hasComposition && (
                         <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
                           custom composition
@@ -522,6 +521,15 @@ export function PropBibleEditor({
                       )}
                     </div>
 
+                    {/* Story Text */}
+                    {storyText && (
+                      <div className="bg-amber-50 p-3 rounded border border-amber-200">
+                        <div className="text-xs font-medium text-amber-700 mb-1">Story Text:</div>
+                        <div className="text-sm text-amber-900 italic">{storyText}</div>
+                      </div>
+                    )}
+
+                    {/* Prompt Preview */}
                     <div className="bg-gray-50 p-3 rounded text-sm font-mono whitespace-pre-wrap text-gray-700 border">
                       {fullPrompt}
                     </div>
