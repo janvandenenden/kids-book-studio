@@ -148,6 +148,8 @@ export async function generatePhase1(input: {
 
 Given the concept brief, create a spread-by-spread storyboard with 10-14 spreads. Each spread is a double-page unit.
 
+IMPORTANT: The protagonist is personalized later. Use the literal placeholder {{name}} (with double curly braces) wherever you refer to the protagonist by name in draftText. Do NOT invent a name.
+
 For each spread, provide:
 - spreadNumber: sequential number
 - pageRange: e.g. "pp. 1-2", "pp. 3-4"
@@ -212,15 +214,19 @@ export async function generatePhase2(input: {
 
 Given the concept and storyboard, write polished final text for each spread.
 
+CRITICAL — PROTAGONIST NAME:
+The protagonist is personalized at book-creation time. You MUST use the literal placeholder {{name}} (exactly as written, with double curly braces) wherever the protagonist is referred to by name in finalText. Do NOT invent a name for the protagonist. For example: "{{name}} looked up at the stars" or "Come on!" said {{name}}."
+
 WRITING RULES:
 - Respect the word-count limits for the age range (0-3: max 40 words/spread, 3-5: max 60, 5-7: max 80)
 - Read-aloud rhythm matters. Vary sentence length. Use repetition for young ages.
 - Every spread must work as text + illustration together — don't describe what the picture shows
 - Text drives emotion; illustration drives scene
+- Always use {{name}} for the protagonist — never a real name
 
 AUDIT (apply silently):
 - Check pacing: energy should rise/fall naturally
-- Check consistency: character names, object references
+- Check consistency: object references, {{name}} used for protagonist everywhere
 - Check read-aloud quality: read each spread aloud mentally
 - Fix any issues before outputting
 
@@ -282,6 +288,8 @@ export async function generatePhase4(input: {
 This document ensures every object, character, and environment looks EXACTLY the same across all spreads.
 
 IMPORTANT: Do NOT include the protagonist/main child character. The protagonist is personalized at book-creation time using a child's photo — they appear as an abstract outline in storyboard panels. Only describe supporting characters, objects, environments, and motifs.
+
+CRITICAL: Do NOT use the protagonist's name anywhere in your output — not in descriptions, not in styleNotes, nowhere. The protagonist has no fixed name. Refer to them only as "the protagonist" or "the child" if you must reference them at all.
 
 From the concept and manuscript, extract and describe:
 
@@ -394,7 +402,13 @@ ${JSON.stringify({
     styleNotes: input.propsBible.styleNotes,
   }, null, 2)}
 
-NOTE: The protagonist (main child) is represented as an abstract outline/placeholder figure. Do NOT describe specific protagonist appearance in the image prompts — just refer to "the child" or "the outline figure".`;
+CRITICAL — PROTAGONIST PLACEHOLDER:
+The protagonist is represented as a FEATURELESS WHITE OUTLINE SILHOUETTE in the storyboard panels. In all fields (composition, charactersInFrame, emotionalDirection, imagePrompt):
+- Refer to the protagonist ONLY as "the white outline placeholder" or "the placeholder figure"
+- Do NOT describe any facial features, expressions, eyes, hair, skin, or clothing for the protagonist
+- Only describe the protagonist's BODY POSITION and POSE (standing, seated, reaching, running, etc.)
+- Do NOT invent a name for the protagonist — the name is personalized later
+- Supporting characters CAN have full visual descriptions`;
 
   if (input.revisionNotes) {
     userPrompt += `\n\nREVISION NOTES (address these in your new version):\n${input.revisionNotes}`;

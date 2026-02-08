@@ -6,6 +6,7 @@ import type {
   StoryProject, StoryIndexEntry, PhaseState,
   Phase0Concept, Phase1Storyboard, Phase2Manuscript, Phase4PropsBible, Phase5PanelBriefs,
 } from "@/types";
+import { buildStoryboardPanelPromptFromPhase5 } from "@/lib/prompt-builder";
 import fs from "fs";
 import path from "path";
 
@@ -270,7 +271,7 @@ export async function saveStoryboardWithImages(
         localSketchUrl = await downloadAndSaveImage(
           panel.sketchUrl,
           filename,
-          "storyboard"
+          `storyboard/${storyId}`
         );
         console.log(`Downloaded panel ${panel.page} to ${localSketchUrl}`);
       } catch (error) {
@@ -561,30 +562,33 @@ export interface StoriesIndex {
 }
 
 export function loadStoriesIndex(): StoriesIndex {
+  const adventureStoryEntry: StoryIndexEntry = {
+    id: "adventure-story",
+    name: "Big Adventure",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    currentPhase: 5,
+    templateReady: true,
+    isLegacy: true,
+  };
+
   try {
     const indexPath = getStoriesIndexPath();
     if (!fs.existsSync(indexPath)) {
-      // Build index from existing templates
-      const defaultIndex: StoriesIndex = {
-        stories: [
-          {
-            id: "adventure-story",
-            name: "Big Adventure",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            currentPhase: 5,
-            templateReady: true,
-            isLegacy: true,
-          },
-        ],
-      };
-      return defaultIndex;
+      return { stories: [adventureStoryEntry] };
     }
     const data = fs.readFileSync(indexPath, "utf-8");
-    return JSON.parse(data) as StoriesIndex;
+    const index = JSON.parse(data) as StoriesIndex;
+
+    // Ensure adventure-story is always present
+    if (!index.stories.some((s) => s.id === "adventure-story")) {
+      index.stories.unshift(adventureStoryEntry);
+    }
+
+    return index;
   } catch (error) {
     console.error("Failed to load stories index:", error);
-    return { stories: [] };
+    return { stories: [adventureStoryEntry] };
   }
 }
 
@@ -730,7 +734,7 @@ export function convertToTemplateFiles(storyId: string): void {
   if (!concept || !manuscript) throw new Error("Phase 0 and Phase 2 required for conversion");
 
   // Convert Phase 2 → story.json
-  const storyJson = convertPhase2ToStoryJson(manuscript, concept, storyId);
+  const storyJson = convertPhase2ToStoryJson(manuscript, concept, storyId, project.name);
   const storyJsonPath = path.join(getStoryDir(storyId), "story.json");
   fs.writeFileSync(storyJsonPath, JSON.stringify(storyJson, null, 2));
 
@@ -759,6 +763,7 @@ function convertPhase2ToStoryJson(
   manuscript: Phase2Manuscript,
   concept: Phase0Concept,
   storyId: string,
+  projectName?: string,
 ): Record<string, unknown> {
   const pages = manuscript.spreads.map((spread) => {
     // Parse illustration note for structured fields
@@ -786,7 +791,7 @@ function convertPhase2ToStoryJson(
 
   return {
     id: storyId,
-    title: `{{name}}'s ${concept.visualHook || "Story"}`,
+    title: projectName ? `{{name}}'s ${projectName}` : `{{name}}'s Story`,
     ageRange: concept.ageRange,
     pageCount: pages.length,
     pages,
@@ -840,7 +845,7 @@ function convertPhase5ToPromptsJson(
     negativePrompt: "extra characters, multiple children, inconsistent face, realistic photo, harsh shadows, text, words, letters",
     pages: panelBriefs.panels.map((panel) => ({
       page: panel.spreadNumber,
-      prompt: panel.imagePrompt,
+      prompt: buildStoryboardPanelPromptFromPhase5(panel, propsBible, { forStoryboard: false }),
     })),
   };
 }

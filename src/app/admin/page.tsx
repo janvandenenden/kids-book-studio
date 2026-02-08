@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PropBibleEditor } from "@/components/PropBibleEditor";
-import type { StoryboardPanel, Storyboard, PropBible } from "@/types";
+import type { StoryboardPanel, Storyboard, PropBible, StoryIndexEntry } from "@/types";
 import type { ImageModel } from "@/lib/replicate";
 
 interface StoredStoryboard {
@@ -62,6 +62,10 @@ export default function AdminPage() {
   } | null>(null);
   const [isSavingCharacter, setIsSavingCharacter] = useState(false);
 
+  // Story selection for storyboard
+  const [availableStories, setAvailableStories] = useState<StoryIndexEntry[]>([]);
+  const [selectedStoryId, setSelectedStoryId] = useState<string>("adventure-story");
+
   // Prop Bible
   const [propBible, setPropBible] = useState<PropBible | null>(null);
   const [usePropBible, setUsePropBible] = useState(true);
@@ -78,7 +82,30 @@ export default function AdminPage() {
     loadSavedCharacters();
     loadSessionCharacter();
     loadPropBible();
+    loadAvailableStories();
   }, []);
+
+  // Reload storyboard when selected story changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadStoryboard();
+    }
+  }, [selectedStoryId]);
+
+  const loadAvailableStories = async () => {
+    try {
+      const response = await fetch("/api/admin/stories", {
+        headers: password ? getAuthHeader() : {},
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableStories(data.stories || []);
+      }
+    } catch (error) {
+      console.error("Failed to load stories:", error);
+    }
+  };
 
   const loadPropBible = async () => {
     try {
@@ -104,7 +131,7 @@ export default function AdminPage() {
       },
       body: JSON.stringify({
         propBible: updatedPropBible,
-        storyId: "adventure-story",
+        storyId: selectedStoryId,
       }),
     });
 
@@ -262,7 +289,7 @@ export default function AdminPage() {
 
   const loadStoryboard = async () => {
     try {
-      const response = await fetch("/api/admin/storyboard", {
+      const response = await fetch(`/api/admin/storyboard?storyId=${selectedStoryId}`, {
         headers: password ? getAuthHeader() : {},
       });
 
@@ -298,6 +325,7 @@ export default function AdminPage() {
           model: selectedModel,
           pageLimit: pageLimit || undefined,
           usePropBible,
+          storyId: selectedStoryId,
         }),
       });
 
@@ -310,6 +338,9 @@ export default function AdminPage() {
 
       // Save the generated storyboard
       await saveStoryboard(data.panels);
+
+      // Reload to refresh both storyboard and story data
+      await loadStoryboard();
 
       setProgress({
         current: data.panelsGenerated,
@@ -338,8 +369,8 @@ export default function AdminPage() {
         },
         body: JSON.stringify({
           panels,
-          storyId: "adventure-story",
-          downloadImages, // If true, downloads images locally
+          storyId: selectedStoryId,
+          downloadImages,
         }),
       });
 
@@ -378,7 +409,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           pageNumber,
           updates: { approved: !panel.approved },
-          storyId: "adventure-story",
+          storyId: selectedStoryId,
         }),
       });
 
@@ -417,6 +448,7 @@ export default function AdminPage() {
           characterType,
           model: selectedModel,
           usePropBible,
+          storyId: selectedStoryId,
         }),
       });
 
@@ -701,6 +733,30 @@ export default function AdminPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
+                  <label className="text-sm font-medium">Story</label>
+                  <select
+                    value={selectedStoryId}
+                    onChange={(e) => setSelectedStoryId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                    disabled={status === "generating"}
+                  >
+                    <option value="adventure-story">Adventure Story (default)</option>
+                    {availableStories
+                      .filter((s) => !s.isLegacy)
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} (Phase {s.currentPhase}{s.templateReady ? " - template ready" : ""})
+                        </option>
+                      ))}
+                  </select>
+                  {selectedStoryId !== "adventure-story" && (
+                    <p className="text-xs text-blue-600">
+                      Pipeline story selected — will use Phase 5 panel briefs for generation
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-sm font-medium">Character Type</label>
                   <select
                     value={characterType}
@@ -844,7 +900,7 @@ export default function AdminPage() {
                    storyboard.panels.every(p => p.sketchUrl?.startsWith("/")) && (
                     <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                       <p className="text-sm text-green-800">
-                        All images saved locally in /public/storyboard/
+                        All images saved locally in /public/storyboard/{selectedStoryId}/
                       </p>
                     </div>
                   )}

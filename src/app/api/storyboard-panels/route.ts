@@ -15,7 +15,7 @@ import {
   loadPropBibleForStory,
   loadStoryProject,
 } from "@/lib/story-template";
-import type { StoryboardPanel, Phase5PanelBriefs } from "@/types";
+import type { StoryboardPanel, Phase5PanelBriefs, Phase4PropsBible } from "@/types";
 
 export const maxDuration = 300; // 5 minutes for storyboard generation
 
@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
       if (project?.phase5?.output) {
         console.log(`Using Phase 5 panel briefs for story: ${storyId}`);
         const panelBriefs = project.phase5.output as Phase5PanelBriefs;
+        const propsBible = project.phase4?.output as Phase4PropsBible | undefined;
         let briefs = panelBriefs.panels;
 
         if (pageLimit && typeof pageLimit === "number" && pageLimit > 0) {
@@ -54,12 +55,13 @@ export async function POST(request: NextRequest) {
           const sketchUrl = await generateStoryboardPanelFromBrief(
             brief,
             (model as ImageModel) || "nano-banana-pro",
+            propsBible,
           );
 
           const localUrl = await downloadAndSaveImage(
             sketchUrl,
             `panel-${brief.spreadNumber}.png`,
-            "storyboard",
+            `storyboard/${storyId}`,
           );
 
           panels.push({
@@ -152,7 +154,7 @@ export async function POST(request: NextRequest) {
           const localUrl = await downloadAndSaveImage(
             panel.sketchUrl,
             `panel-${panel.page}.png`,
-            "storyboard"
+            `storyboard/${storyId || "adventure-story"}`
           );
           return { ...panel, sketchUrl: localUrl };
         }

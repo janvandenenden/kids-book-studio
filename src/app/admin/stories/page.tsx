@@ -486,6 +486,7 @@ export default function AdminStoriesPage() {
                   <Phase5Editor
                     storyId={project.id}
                     output={project.phase5.output}
+                    propsBible={project.phase4.output}
                     status={project.phase5.status}
                     templateReady={project.templateReady}
                     onGenerate={(data) => handlePhaseGenerate(5, data)}

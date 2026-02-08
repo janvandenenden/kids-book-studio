@@ -1,5 +1,9 @@
 import Replicate from "replicate";
-import type { StoryPage, StoryboardPanel, PropBible, Phase5PanelBrief } from "@/types";
+import type { StoryPage, StoryboardPanel, PropBible, Phase5PanelBrief, Phase4PropsBible } from "@/types";
+import {
+  buildStoryboardPanelPromptFromPhase5,
+  STORYBOARD_STYLE_PROMPT as SHARED_STORYBOARD_STYLE,
+} from "@/lib/prompt-builder";
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
@@ -34,8 +38,8 @@ export const GLOBAL_STYLE_PROMPT = `Soft children's book illustration, pastel co
 // Negative prompt applied to ALL generations (for models that support it)
 export const GLOBAL_NEGATIVE_PROMPT = `extra characters, multiple children, inconsistent face, realistic photo, harsh shadows, busy background, cropped face, distorted anatomy, text, words, letters, ugly, deformed, disfigured, blurry, bad anatomy, extra limbs, signature, watermark, scary, dark, violent`;
 
-// Storyboard style for B&W sketch panels - composition focus
-export const STORYBOARD_STYLE_PROMPT = `loose sketch, soft shapes, simplified forms, low detail, black and white only, no text, no border, minimal background`;
+// Re-export from shared module for backward compat
+export const STORYBOARD_STYLE_PROMPT = SHARED_STORYBOARD_STYLE;
 
 // Path to the child outline image used as img2img input for storyboard panels
 export const STORYBOARD_OUTLINE_PATH = "/outline-2.png";
@@ -140,15 +144,16 @@ async function extractImageUrl(output: unknown): Promise<string> {
 
   // Handle FileOutput objects (they have a url() method or can be converted to string)
   if (output && typeof output === "object") {
-    // Check for url() method (FileOutput)
+    // Check for url() method (FileOutput) — returns a URL object, so convert to string
     if (
       "url" in output &&
-      typeof (output as { url: () => string }).url === "function"
+      typeof (output as { url: () => unknown }).url === "function"
     ) {
-      return (output as { url: () => string }).url();
+      const urlResult = (output as { url: () => unknown }).url();
+      return String(urlResult);
     }
 
-    // Check for href property
+    // Check for href property (URL objects have this)
     if (
       "href" in output &&
       typeof (output as { href: string }).href === "string"
@@ -157,7 +162,7 @@ async function extractImageUrl(output: unknown): Promise<string> {
     }
 
     // Try toString() which FileOutput supports
-    const str = output.toString();
+    const str = String(output);
     if (str && str.startsWith("http")) {
       return str;
     }
@@ -838,28 +843,19 @@ export async function generateImg2Img({
 }
 
 /**
- * Build storyboard panel prompt from a Phase 5 panel brief
- * The imagePrompt is already a complete, dense prompt for Nano Banana
- * We append the storyboard style to keep B&W sketch output
- */
-export function buildStoryboardPanelPromptFromPhase5(
-  panelBrief: Phase5PanelBrief,
-): string {
-  return `${panelBrief.imagePrompt}. Style: ${STORYBOARD_STYLE_PROMPT}`;
-}
-
-/**
- * Generate a B&W storyboard panel from a Phase 5 panel brief
+ * Generate a B&W storyboard panel from a Phase 5 panel brief + Phase 4 props bible.
+ * Builds a rich structured prompt using all available descriptions.
  */
 export async function generateStoryboardPanelFromBrief(
   panelBrief: Phase5PanelBrief,
   model: ImageModel = DEFAULT_MODEL,
+  propsBible?: Phase4PropsBible,
 ): Promise<string> {
-  const prompt = buildStoryboardPanelPromptFromPhase5(panelBrief);
+  const prompt = buildStoryboardPanelPromptFromPhase5(panelBrief, propsBible);
 
   console.log(
     `Generating storyboard panel ${panelBrief.spreadNumber} from Phase 5 brief:`,
-    prompt.slice(0, 150) + "...",
+    prompt.slice(0, 300) + "...",
   );
 
   return generateStoryboardPanelWithOutline({
@@ -874,11 +870,25 @@ export const SIMPLE_STYLE_PROMPT =
   "Soft watercolor children's book illustration, pastel colors, gentle and warm";
 
 /**
- * Generate final colored page from storyboard sketch
- * Uses the storyboard as composition reference and character sheet for face consistency
+ * Extract a labeled section from a composed prompt (e.g. "ENVIRONMENT: ...")
+ * Returns just the content after the label, or empty string if not found.
+ */
+function extractSection(prompt: string, label: string): string {
+  const regex = new RegExp(`${label}:\\s*(.+?)(?=\\. \\n|$)`, "i");
+  const match = prompt.match(regex);
+  return match ? match[1].trim() : "";
+}
+
+/**
+ * Generate final colored page from storyboard sketch.
  *
- * Image 1: Storyboard sketch (scene composition, pose, layout)
- * Image 2: Character sheet (face/appearance to use for the placeholder figure)
+ * The storyboard sketch (image 1) already captures composition, layout, and character
+ * positions. The prompt focuses on:
+ *  - Replacing the child placeholder with the real character (image 2)
+ *  - Environment/object descriptions for color consistency (from props bible)
+ *  - Style direction
+ *
+ * @param pagePrompt - Full composed prompt from prompts.json (used to extract environment & objects)
  */
 export async function generatePageFromStoryboard(
   page: StoryPage,
@@ -887,16 +897,56 @@ export async function generatePageFromStoryboard(
   referenceImageUrl: string,
   stylePrompt: string = SIMPLE_STYLE_PROMPT,
   model: ImageModel = DEFAULT_MODEL,
+  pagePrompt?: string,
 ): Promise<string> {
-  // Combine storyboard composition with character appearance (including clothing)
-  // characterSummary includes: age, gender, hair, eyes, skin, distinctive features, clothing
-  const prompt = `Replace the placeholder figure in image 1 with the character from image 2: ${characterSummary}. ${stylePrompt}.`;
+  const parts: string[] = [];
+
+  // Core instruction: replace placeholder with character
+  parts.push(
+    `Illustrate image 1 as a full-color children's book page. Replace the child figure with the character from image 2: ${characterSummary}.`,
+  );
+
+  // Always include scene/action from story.json for context
+  if (page.scene) {
+    parts.push(`Scene: ${page.scene}.`);
+  }
+  if (page.action) {
+    parts.push(`Action: ${page.action}.`);
+  }
+
+  // Character direction — expression, gaze, pose (from prompts.json CHARACTER_DIRECTION section)
+  if (pagePrompt) {
+    const charDirection = extractSection(pagePrompt, "CHARACTER_DIRECTION");
+    if (charDirection) {
+      parts.push(`Character direction: ${charDirection}.`);
+    }
+    const mood = extractSection(pagePrompt, "MOOD");
+    if (mood) parts.push(`Mood: ${mood}.`);
+  }
+  if (page.emotion) {
+    parts.push(`Emotion: ${page.emotion}.`);
+  }
+
+  if (pagePrompt) {
+    // Extract environment and objects for color/visual consistency
+    const env = extractSection(pagePrompt, "ENVIRONMENT");
+    const objects = extractSection(pagePrompt, "OBJECTS");
+
+    if (env) parts.push(`Setting: ${env}.`);
+    if (objects) parts.push(`Key objects: ${objects}.`);
+  } else if (page.setting) {
+    // Fallback for legacy adventure-story
+    parts.push(`Setting: ${page.setting}.`);
+  }
+
+  parts.push(`Style: ${stylePrompt}.`);
+
+  const prompt = parts.join(" ");
 
   console.log(`Generating page ${page.page}:`);
   console.log(`  Storyboard: ${storyboardSketchUrl}`);
   console.log(`  Character: ${referenceImageUrl}`);
-  console.log(`  Character summary: ${characterSummary}`);
-  console.log(`  Prompt: ${prompt.slice(0, 150)}...`);
+  console.log(`  Prompt: ${prompt}`);
 
   return generateImg2Img({
     prompt,

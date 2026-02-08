@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Phase5PanelBriefs, PhaseStatus } from "@/types";
+import { buildStoryboardPanelPromptFromPhase5 } from "@/lib/prompt-builder";
+import type { Phase5PanelBriefs, Phase4PropsBible, PhaseStatus } from "@/types";
 
 interface Phase5EditorProps {
   storyId: string;
   output: Phase5PanelBriefs | null;
+  propsBible: Phase4PropsBible | null;
   status: PhaseStatus;
   templateReady: boolean;
   onGenerate: (data: { revisionNotes?: string }) => Promise<void>;
@@ -18,6 +20,7 @@ interface Phase5EditorProps {
 
 export function Phase5Editor({
   output,
+  propsBible,
   status,
   templateReady,
   onGenerate,
@@ -29,6 +32,19 @@ export function Phase5Editor({
   const [isLoading, setIsLoading] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState<number | null>(null);
+
+  // Compute the final prompts that will be sent to Replicate
+  const finalPrompts = useMemo(() => {
+    if (!output) return {};
+    const prompts: Record<number, string> = {};
+    for (const panel of output.panels) {
+      prompts[panel.spreadNumber] = buildStoryboardPanelPromptFromPhase5(
+        panel,
+        propsBible || undefined,
+      );
+    }
+    return prompts;
+  }, [output, propsBible]);
 
   const handleGenerate = async () => {
     setIsLoading(true);
@@ -112,9 +128,11 @@ export function Phase5Editor({
                         <p className="text-xs font-medium text-gray-500">Continuity Notes</p>
                         <p>{panel.continuityNotes}</p>
                       </div>
-                      <div className="p-2 bg-yellow-50 rounded border border-yellow-200">
-                        <p className="text-xs font-medium text-yellow-700">Image Prompt</p>
-                        <p className="text-xs mt-1">{panel.imagePrompt}</p>
+                      <div className="p-2 bg-blue-50 rounded border border-blue-200">
+                        <p className="text-xs font-medium text-blue-700">Final Prompt (sent to Replicate)</p>
+                        <pre className="text-xs mt-1 whitespace-pre-wrap font-mono text-gray-800">
+                          {finalPrompts[panel.spreadNumber] || panel.imagePrompt}
+                        </pre>
                       </div>
                     </div>
                   )}
@@ -169,14 +187,14 @@ export function Phase5Editor({
             </span>
           )}
 
-          {status === "approved" && !templateReady && (
+          {status === "approved" && (
             <Button
               variant="default"
               onClick={handleConvert}
               disabled={isConverting}
               className="bg-green-600 hover:bg-green-700"
             >
-              {isConverting ? "Converting..." : "Convert to Template"}
+              {isConverting ? "Converting..." : templateReady ? "Re-convert to Template" : "Convert to Template"}
             </Button>
           )}
 

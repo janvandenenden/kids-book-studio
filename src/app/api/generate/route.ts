@@ -153,6 +153,10 @@ export async function POST(request: NextRequest) {
           let imageUrl: string;
 
           if (sketchUrl) {
+            // Look up the per-page prompt from prompts.json (rich composed prompt for pipeline stories)
+            const pagePromptEntry = promptsTemplate.pages?.find((p) => p.page === page.page);
+            const pagePrompt = pagePromptEntry?.prompt;
+
             // Use img2img with storyboard sketch as init image
             console.log(`Generating page ${page.page} (${i + 1}/${storyboard.pages.length}) from storyboard sketch (img2img)...`);
             imageUrl = await generatePageFromStoryboard(
@@ -161,7 +165,8 @@ export async function POST(request: NextRequest) {
               characterSummary,
               referenceImageUrl,
               promptsTemplate.stylePrompt || GLOBAL_STYLE_PROMPT,
-              (model as ImageModel) || "nano-banana-pro"
+              (model as ImageModel) || "nano-banana-pro",
+              pagePrompt,
             );
           } else {
             // Fallback to regular generation if no sketch available

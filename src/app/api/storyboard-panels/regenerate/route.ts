@@ -7,7 +7,7 @@ import {
 } from "@/lib/replicate";
 import { downloadAndSaveImage } from "@/lib/server-utils";
 import { loadPropBible, loadPropBibleForStory, loadStoryProject } from "@/lib/story-template";
-import type { StoryPage, StoryboardPanel, Phase5PanelBriefs } from "@/types";
+import type { StoryPage, StoryboardPanel, Phase5PanelBriefs, Phase4PropsBible } from "@/types";
 
 export const maxDuration = 120; // 2 minutes for single panel regeneration
 
@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       const project = loadStoryProject(storyId);
       if (project?.phase5?.output) {
         const panelBriefs = project.phase5.output as Phase5PanelBriefs;
+        const propsBible = project.phase4?.output as Phase4PropsBible | undefined;
         const brief = panelBriefs.panels.find((p) => p.spreadNumber === pageNumber);
 
         if (brief) {
@@ -45,12 +46,13 @@ export async function POST(request: NextRequest) {
           sketchUrl = await generateStoryboardPanelFromBrief(
             brief,
             (model as ImageModel) || "nano-banana-pro",
+            propsBible,
           );
 
           const localSketchUrl = await downloadAndSaveImage(
             sketchUrl,
             `panel-${pageNumber}.png`,
-            "storyboard",
+            `storyboard/${storyId}`,
           );
 
           const panel: StoryboardPanel = {
@@ -105,7 +107,7 @@ export async function POST(request: NextRequest) {
     const localSketchUrl = await downloadAndSaveImage(
       sketchUrl,
       `panel-${pageNumber}.png`,
-      "storyboard"
+      `storyboard/${storyId || "adventure-story"}`
     );
 
     // Determine text placement from layout
