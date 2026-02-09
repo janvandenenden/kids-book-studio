@@ -6,6 +6,7 @@ import {
   updateStoredPanel,
   hasStoredStoryboard,
   generateStoryboard,
+  generateStoryboardForStory,
 } from "@/lib/story-template";
 import type { StoryboardPanel } from "@/types";
 
@@ -40,12 +41,12 @@ export async function GET(request: NextRequest) {
   const storyId = searchParams.get("storyId") || "adventure-story";
 
   const storyboard = loadStoredStoryboard(storyId);
-  const story = generateStoryboard("Child"); // Use placeholder name for preview
+  const story = generateStoryboardForStory(storyId, "Child") || generateStoryboard("Child");
 
   return NextResponse.json({
     exists: hasStoredStoryboard(storyId),
     storyboard,
-    story, // Include story data for reference
+    story,
   });
 }
 

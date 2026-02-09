@@ -10,11 +10,13 @@ import {
 } from "@/lib/replicate";
 import {
   generateStoryboard,
+  generateStoryboardForStory,
   getPromptsTemplate,
   mergeStoryboardWithImages,
+  loadStoryTemplateForStory,
 } from "@/lib/story-template";
 import { profileToPromptSummary } from "@/lib/character-profile";
-import type { CharacterProfile, StoryboardPanel } from "@/types";
+import type { CharacterProfile, StoryboardPanel, PromptsTemplate } from "@/types";
 
 /**
  * Check if a URL is accessible (not expired)
@@ -46,6 +48,7 @@ export async function POST(request: NextRequest) {
       model,
       pageLimit,
       storyboardPanels,
+      storyId = "adventure-story",
     } = body;
 
     if (!childName) {
@@ -70,7 +73,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate the storyboard with name placeholders filled in
-    let storyboard = generateStoryboard(childName);
+    let storyboard = storyId !== "adventure-story"
+      ? generateStoryboardForStory(storyId, childName)
+      : generateStoryboard(childName);
+
+    if (!storyboard) {
+      return NextResponse.json(
+        { error: `Story template ${storyId} not found` },
+        { status: 404 },
+      );
+    }
 
     // Dev mode: limit number of pages
     if (pageLimit && typeof pageLimit === "number" && pageLimit > 0) {
@@ -82,7 +94,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Get prompts template for style info
-    const promptsTemplate = getPromptsTemplate();
+    let promptsTemplate: PromptsTemplate;
+    if (storyId !== "adventure-story") {
+      const template = loadStoryTemplateForStory(storyId);
+      promptsTemplate = template?.prompts || getPromptsTemplate();
+    } else {
+      promptsTemplate = getPromptsTemplate();
+    }
 
     // Build character summary for prompts
     let characterSummary = characterDescription;
@@ -135,6 +153,10 @@ export async function POST(request: NextRequest) {
           let imageUrl: string;
 
           if (sketchUrl) {
+            // Look up the per-page prompt from prompts.json (rich composed prompt for pipeline stories)
+            const pagePromptEntry = promptsTemplate.pages?.find((p) => p.page === page.page);
+            const pagePrompt = pagePromptEntry?.prompt;
+
             // Use img2img with storyboard sketch as init image
             console.log(`Generating page ${page.page} (${i + 1}/${storyboard.pages.length}) from storyboard sketch (img2img)...`);
             imageUrl = await generatePageFromStoryboard(
@@ -143,7 +165,8 @@ export async function POST(request: NextRequest) {
               characterSummary,
               referenceImageUrl,
               promptsTemplate.stylePrompt || GLOBAL_STYLE_PROMPT,
-              (model as ImageModel) || "nano-banana-pro"
+              (model as ImageModel) || "nano-banana-pro",
+              pagePrompt,
             );
           } else {
             // Fallback to regular generation if no sketch available

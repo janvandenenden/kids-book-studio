@@ -131,3 +131,136 @@ export interface RegeneratePageResponse {
   pageNumber: number;
   imageUrl: string;
 }
+
+// ============================================
+// Story Generation Pipeline Types
+// ============================================
+
+// Age range for story generation
+export type AgeRange = "0-2" | "2-3" | "3-4" | "4-5" | "5-6" | "6-7" | "7-8";
+
+// Phase 0: Concept
+export interface Phase0Concept {
+  ageRange: AgeRange;
+  theme?: string;
+  emotionalCore: string;
+  visualHook: string;
+  toneTexture: string;
+  comparableBooks: string;
+  whatItsNot: string;
+  rawOutput: string;
+}
+
+// Phase 1: Visual Storyboard
+export interface Phase1Spread {
+  spreadNumber: number;
+  pageRange: string;
+  draftText: string;
+  visualFocus: string;
+  emotionalBeat: string;
+  pageTurnPull: string;
+  energy: "Quiet" | "Dynamic";
+}
+
+export interface Phase1Storyboard {
+  spreadCount: number;
+  spreads: Phase1Spread[];
+  rawOutput: string;
+}
+
+// Phase 2+3: Manuscript
+export interface Phase2Spread {
+  spreadNumber: number;
+  finalText: string;
+  illustrationNote: string;
+  readAloudNote?: string;
+}
+
+export interface Phase2Manuscript {
+  spreads: Phase2Spread[];
+  rawOutput: string;
+}
+
+// Phase 4: Props Bible (LLM-structured)
+export interface Phase4PropsBible {
+  supportingCharacters: Array<{
+    name: string;
+    description: string;
+    appearsInSpreads: number[];
+  }>;
+  keyObjects: Array<{
+    name: string;
+    description: string;
+    appearsInSpreads: number[];
+    stateChanges?: string;
+  }>;
+  environments: Array<{
+    name: string;
+    description: string;
+    usedInSpreads: number[];
+    colorPalette: string[];
+    lightSource?: string;
+  }>;
+  visualMotifs: Array<{
+    motif: string;
+    purpose: string;
+    appearsInSpreads: number[];
+  }>;
+  styleNotes: string;
+  rawOutput: string;
+}
+
+// Phase 5: Panel Briefs
+export interface Phase5PanelBrief {
+  spreadNumber: number;
+  manuscriptText: string;
+  composition: string;
+  charactersInFrame: string;
+  environment: string;
+  objectsInFrame: string;
+  emotionalDirection: string;
+  continuityNotes: string;
+  imagePrompt: string;
+}
+
+export interface Phase5PanelBriefs {
+  panels: Phase5PanelBrief[];
+  rawOutput: string;
+}
+
+// Phase status tracking
+export type PhaseStatus = "pending" | "generating" | "review" | "approved";
+
+export interface PhaseState<T> {
+  status: PhaseStatus;
+  output: T | null;
+  revisionNotes?: string;
+  generatedAt?: string;
+  approvedAt?: string;
+}
+
+// Top-level story project
+export interface StoryProject {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  phase0: PhaseState<Phase0Concept>;
+  phase1: PhaseState<Phase1Storyboard>;
+  phase2: PhaseState<Phase2Manuscript>;
+  phase4: PhaseState<Phase4PropsBible>;
+  phase5: PhaseState<Phase5PanelBriefs>;
+  currentPhase: 0 | 1 | 2 | 4 | 5;
+  templateReady: boolean;
+}
+
+// Stories index entry (lightweight, for list views)
+export interface StoryIndexEntry {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  currentPhase: number;
+  templateReady: boolean;
+  isLegacy: boolean;
+}

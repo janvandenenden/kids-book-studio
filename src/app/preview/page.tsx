@@ -16,6 +16,7 @@ interface BookData {
   photoPath: string; // Original photo (kept for reference)
   model?: ImageModel;
   pageLimit?: number; // Dev mode: limit number of pages to generate
+  storyId?: string; // Which story template to use (default: adventure-story)
 }
 
 interface StoryboardData {
@@ -68,10 +69,11 @@ export default function PreviewPage() {
   }, [router]);
 
   const loadStoryboardAndGenerate = async (data: BookData) => {
+    const storyId = data.storyId || "adventure-story";
     try {
       // Fetch the pre-made storyboard from the server
       const response = await fetch(
-        "/api/admin/storyboard?storyId=adventure-story",
+        `/api/admin/storyboard?storyId=${storyId}`,
       );
 
       if (response.ok) {
@@ -129,6 +131,7 @@ export default function PreviewPage() {
         characterSheetUrl: data.characterSheetUrl, // Use illustrated character as reference
         model: data.model || "nano-banana-pro",
         pageLimit: data.pageLimit, // Dev mode: limit pages
+        storyId: data.storyId || "adventure-story",
       };
 
       // If we have storyboard data, pass it for img2img generation
